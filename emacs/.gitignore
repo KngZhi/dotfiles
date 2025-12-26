@@ -1,0 +1,17 @@
+# Emacs runtime files
+auto-saves/
+auto-save-list/
+eln-cache/
+elpa/
+bookmarks
+history
+recentf
+*.elc
+
+# Backup files
+*~
+\#*\#
+.\#*
+
+# OS files
+.DS_Store
