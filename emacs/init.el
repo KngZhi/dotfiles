@@ -123,12 +123,17 @@
 
 
 ;; 所有备份文件（…~）统一放到 ~/.emacs.d/backups
-(setq backup-directory-alist
-      `(("." . ,(expand-file-name "backups/" user-emacs-directory))))
+(let ((backup-dir (expand-file-name "backups/" user-emacs-directory)))
+  (unless (file-exists-p backup-dir)
+    (make-directory backup-dir t))
+  (setq backup-directory-alist `(("." . ,backup-dir))))
 
 ;; 所有自动保存文件（.#… 或 #…#）
-(setq auto-save-file-name-transforms
-      `((".*" ,(expand-file-name "auto-saves/" user-emacs-directory) t)))
+(let ((auto-save-dir (expand-file-name "auto-saves/" user-emacs-directory)))
+  (unless (file-exists-p auto-save-dir)
+    (make-directory auto-save-dir t))
+  (setq auto-save-file-name-transforms
+        `((".*" ,auto-save-dir t))))
 
 ;; 如果愿意，也可以把 lock files (.#filename) 关闭
 (setq create-lockfiles nil)
