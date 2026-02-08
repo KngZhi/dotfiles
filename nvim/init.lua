@@ -173,6 +173,9 @@ vim.o.confirm = true
 --  See `:help hlsearch`
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 
+-- Use ; as : to enter command-line mode (saves a shift key press)
+vim.keymap.set('n', ';', ':', { desc = 'Enter command-line mode' })
+
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
 
@@ -1015,6 +1018,18 @@ require('lazy').setup({
     },
   },
 })
+
+-- Emacs-style cursor movement (macOS native behavior)
+vim.keymap.set('i', '<C-b>', '<Left>', { desc = 'Move cursor left' })
+vim.keymap.set('i', '<C-f>', '<Right>', { desc = 'Move cursor right' })
+vim.keymap.set('i', '<C-a>', '<Home>', { desc = 'Move to beginning of line' })
+vim.keymap.set('i', '<C-e>', '<End>', { desc = 'Move to end of line' })
+vim.keymap.set('i', '<C-d>', '<Delete>', { desc = 'Delete character forward' })
+
+vim.keymap.set('c', '<C-b>', '<Left>', { desc = 'Move cursor left' })
+vim.keymap.set('c', '<C-f>', '<Right>', { desc = 'Move cursor right' })
+vim.keymap.set('c', '<C-a>', '<Home>', { desc = 'Move to beginning of line' })
+vim.keymap.set('c', '<C-e>', '<End>', { desc = 'Move to end of line' })
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et

@@ -7,11 +7,7 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(package-selected-packages
-   '(cape claude-code claude-code-ide corfu-terminal eat embark-consult
-          evil-collection evil-nerd-commenter exec-path-from-shell
-          general gptel marginalia orderless org-super-agenda treemacs
-          treemacs-evil vertico vterm))
+ '(package-selected-packages nil)
  '(package-vc-selected-packages
    '((claude-code :url "https://github.com/stevemolitor/claude-code.el")
      (claude-code-ide :url

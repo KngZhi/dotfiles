@@ -13,9 +13,12 @@
 (setq native-comp-deferred-compilation nil
       package-native-compile        nil)
 
-;; 添加 crafted-emacs 模块到 load-path (相对于 emacs 目录)
+;; 抑制第三方包的字节编译警告
+(setq byte-compile-warnings '(not obsolete docstrings free-vars unresolved))
+
+;; 添加 crafted-emacs 模块到 load-path
 (defvar my/crafted-modules-path
-  (expand-file-name "../crafted-emacs/modules" user-emacs-directory))
+  (expand-file-name "~/repo/dotfiles/crafted-emacs/modules"))
 (add-to-list 'load-path my/crafted-modules-path)
 
 ;; 加载 early-init 配置

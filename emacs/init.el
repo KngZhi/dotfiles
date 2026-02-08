@@ -21,24 +21,30 @@
 
 ;; 加载包列表（包括 evil）
 (require 'crafted-evil-packages)      ;; Evil 包配置
-(require 'crafted-completion-packages) ;; Vertico/Consult/Orderless 包
-(add-to-list 'package-selected-packages 'embark-consult) ;; Embark + Consult 集成
+(require 'crafted-completion-packages) ;; Vertico/Consult/Orderless 包（已包含 embark-consult）
 
 ;; 安装缺失的包
 (package-install-selected-packages)
 
 ;; 加载各个模块
 (require 'crafted-defaults-config)    ;; 更合理的内置默认值
-(require 'crafted-ui-config)          ;; 美化 UI / modeline  
+(require 'crafted-ui-config)          ;; 美化 UI / modeline
 (require 'crafted-org-config)         ;; Org-mode 友好设置
 (require 'crafted-osx-config)
 (require 'crafted-evil-config)        ;; Evil 模式配置
 (require 'crafted-completion-config)  ;; 启用 Vertico/Consult/Orderless
-(with-eval-after-load 'embark
-  (with-eval-after-load 'consult
-    (require 'embark-consult)))
+
+;; 立即加载 embark-consult 集成（消除启动警告）
+(require 'embark-consult)
 (tool-bar-mode -1)
 (load-theme 'modus-vivendi t)
+
+;; Markdown 语法高亮
+(use-package markdown-mode
+  :ensure t
+  :mode ("\\.md\\'" . markdown-mode)
+  :init (setq markdown-command "multimarkdown"))
+
 (global-set-key (kbd "C-w") 'backward-kill-word)
 (global-set-key (kbd "s-x") 'execute-extended-command)
 
