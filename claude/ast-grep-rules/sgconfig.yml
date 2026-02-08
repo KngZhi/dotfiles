@@ -1,0 +1,5 @@
+# ast-grep configuration for Claude Code
+# Global rules that apply to all projects
+
+ruleDirs:
+  - ./rules

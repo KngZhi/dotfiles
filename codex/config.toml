@@ -1,0 +1,58 @@
+model = "gpt-5.3-codex"
+model_reasoning_effort = "high"
+tool_output_token_limit = 25000
+# Leave room for native compaction near the 272–273k context window.
+# Formula: 273000 - (tool_output_token_limit + 15000)
+# With tool_output_token_limit=25000 ⇒ 273000 - (25000 + 15000) = 233000
+model_auto_compact_token_limit = 233000
+approval_policy = "never"
+sandbox_mode    = "workspace-write"
+personality = "pragmatic"
+suppress_unstable_features_warning = true
+
+[features]
+ghost_commit = false
+apply_patch_freeform = true
+skills = true
+unified_exec = true
+shell_snapshot = true
+collab = true
+
+[projects."/Users/amd/repo"]
+trust_level = "trusted"
+
+[projects."/Users/amd/repo/chile-mono"]
+trust_level = "trusted"
+
+[projects."/Users/amd/repo/chile-mono/data"]
+trust_level = "trusted"
+
+[projects."/Users/amd/.codex"]
+trust_level = "trusted"
+
+[notice]
+"hide_gpt-5.1-codex-max_migration_prompt" = true
+
+[notice.model_migrations]
+"gpt-5.2" = "gpt-5.2-codex"
+
+[mcp_servers.pal]
+command = "bash"
+args = ["-c", "for p in $(which uvx 2>/dev/null) $HOME/.local/bin/uvx /opt/homebrew/bin/uvx /usr/local/bin/uvx uvx; do [ -x \"$p\" ] && exec \"$p\" --from git+https://github.com/BeehiveInnovations/pal-mcp-server.git pal-mcp-server; done; echo 'uvx not found' >&2; exit 1"]
+tool_timeout_sec = 1200
+
+# API keys are read from environment variables.
+# Set them in your shell profile (~/.zshrc or ~/.bashrc):
+#   export GEMINI_API_KEY="..."
+#   export OPENAI_API_KEY="..."
+#   export OPENROUTER_API_KEY="..."
+[mcp_servers.pal.env]
+PATH = "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:$HOME/.local/bin:$HOME/.cargo/bin:$HOME/bin"
+WORKSPACE_ROOT = "/Users/amd"
+CUSTOM_API_URL = "http://localhost:11434/v1"
+CUSTOM_MODEL_NAME = "llama3.2"
+DEFAULT_MODEL = "auto"
+DEFAULT_THINKING_MODE_THINKDEEP = "high"
+CONVERSATION_TIMEOUT_HOURS = "3"
+MAX_CONVERSATION_TURNS = "20"
+LOG_LEVEL = "DEBUG"

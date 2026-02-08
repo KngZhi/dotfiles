@@ -1,0 +1,6 @@
+prefix_rule(pattern=["ps", "-ax", "-o", "pid=,command="], decision="allow")
+prefix_rule(pattern=["/tmp/skill-venv/bin/python", "/Users/amd/.codex/skills/.system/skill-creator/scripts/quick_validate.py", "/Users/amd/clawd/skills/create-order"], decision="allow")
+prefix_rule(pattern=["pnpm", "--silent", "santander-transactions"], decision="allow")
+prefix_rule(pattern=["/usr/bin/time", "-p", "pnpm", "--silent", "santander-transactions"], decision="allow")
+prefix_rule(pattern=["git", "push"], decision="allow")
+prefix_rule(pattern=["/usr/bin/time", "-p", "pnpm", "--silent", "bank-transactions"], decision="allow")

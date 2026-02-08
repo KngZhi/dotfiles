@@ -1,0 +1,9 @@
+.DS_Store
+
+# Claude Code runtime data
+claude/plugins/
+claude/cache/
+
+# Codex sensitive files - keep API keys out of git
+# Set keys in shell profile instead
+codex/auth.json

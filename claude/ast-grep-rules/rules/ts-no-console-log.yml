@@ -1,0 +1,7 @@
+id: ts-no-console-log
+language: typescript
+severity: warning
+rule:
+  kind: call_expression
+  pattern: console.log($$$ARGS)
+message: "Remove console.log() before committing"

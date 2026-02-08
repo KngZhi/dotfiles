@@ -1,0 +1,12 @@
+id: python-no-bare-except
+language: python
+severity: error
+rule:
+  kind: except_clause
+  not:
+    has:
+      any:
+        - kind: as_pattern
+        - kind: identifier
+        - kind: tuple
+message: "Avoid bare 'except:' - specify exception type like 'except Exception:'"
