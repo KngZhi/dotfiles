@@ -41,11 +41,6 @@ command = "bash"
 args = ["-c", "for p in $(which uvx 2>/dev/null) $HOME/.local/bin/uvx /opt/homebrew/bin/uvx /usr/local/bin/uvx uvx; do [ -x \"$p\" ] && exec \"$p\" --from git+https://github.com/BeehiveInnovations/pal-mcp-server.git pal-mcp-server; done; echo 'uvx not found' >&2; exit 1"]
 tool_timeout_sec = 1200
 
-# API keys are read from environment variables.
-# Set them in your shell profile (~/.zshrc or ~/.bashrc):
-#   export GEMINI_API_KEY="..."
-#   export OPENAI_API_KEY="..."
-#   export OPENROUTER_API_KEY="..."
 [mcp_servers.pal.env]
 PATH = "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:$HOME/.local/bin:$HOME/.cargo/bin:$HOME/bin"
 WORKSPACE_ROOT = "/Users/amd"
