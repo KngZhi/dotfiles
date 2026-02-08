@@ -7,3 +7,7 @@ claude/cache/
 # Codex sensitive files - keep API keys out of git
 # Set keys in shell profile instead
 codex/auth.json
+
+# Emacs generated directories
+emacs/projects
+emacs/transient/
