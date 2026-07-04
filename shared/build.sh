@@ -2,12 +2,17 @@
 # Builds tool-specific instruction files from shared common + tool-specific parts,
 # and deploys skills to Claude Code, Codex, and (via external_dirs) Hermes.
 #
-# The rules:
+# Usage:
+#   build.sh            Local deploy: rebuild instructions, relink skills,
+#                       clone any NEW packs. No network pull of existing packs.
+#   build.sh --update   Also `git pull` every existing pack, then deploy.
+#   build.sh --add URL  Append URL to skill-packs/sources.txt (if new), deploy.
+#
+# Rules:
 #   - shared/skills/         → skills I hand-author, shared to all three tools
 #   - claude/skills/         → Claude-only hand-authored skills (tracked ones)
 #   - codex/skills/          → Codex-only hand-authored skills
-#   - shared/skill-packs/    → third-party packs; add a repo URL to sources.txt
-# Run this script after editing any of the above.
+#   - shared/skill-packs/    → third-party packs; a repo URL per line in sources.txt
 set -euo pipefail
 
 DOTFILES_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -15,21 +20,32 @@ CLAUDE_SKILLS="$DOTFILES_DIR/claude/skills"   # == ~/.claude/skills (symlinked)
 CODEX_SKILLS="$HOME/.codex/skills"            # plain machine-local dir
 PACKS_DIR="$DOTFILES_DIR/shared/skill-packs"
 PACKS_DEPLOY="$PACKS_DIR/.deploy"             # flat view of curated pack skills, for Hermes
-# Category dirs that are never real skills, used when a pack has no plugin.json.
 PACK_EXCLUDE="deprecated in-progress out-of-scope personal .out-of-scope"
+
+PULL=0
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --update) PULL=1 ;;
+        --add) shift; [ -n "${1:-}" ] || { echo "--add needs a repo URL" >&2; exit 2; }
+               grep -qxF "$1" "$PACKS_DIR/sources.txt" 2>/dev/null || echo "$1" >> "$PACKS_DIR/sources.txt"
+               echo "  added source: $1" ;;
+        *) echo "unknown arg: $1" >&2; exit 2 ;;
+    esac
+    shift
+done
 
 mkdir -p "$CLAUDE_SKILLS" "$CODEX_SKILLS"
 
+# Note: automation (git hooks + weekly LaunchAgent) is opt-in — run
+# shared/install-automation.sh once to enable it. build.sh itself only
+# deploys; it never installs background jobs or rewrites git config.
+
 # ── Instructions ──────────────────────────────────────────────────────────
-# Claude Code: common + claude-only → ~/.claude/CLAUDE.md
 cat "$DOTFILES_DIR/shared/common.md" "$DOTFILES_DIR/claude/claude-only.md" \
     > "$HOME/.claude/CLAUDE.md"
-
-# Codex: common only → ~/.codex/instructions.md
 cp "$DOTFILES_DIR/shared/common.md" "$HOME/.codex/instructions.md"
 
-# ── Shared skills → Claude (relative link, repo-portable) + Codex (absolute) ──
-# Hermes picks up shared/skills directly via skills.external_dirs — no links.
+# ── Shared skills → Claude (relative link) + Codex (absolute) ─────────────
 if [ -d "$DOTFILES_DIR/shared/skills" ]; then
     for skill_dir in "$DOTFILES_DIR/shared/skills"/*/; do
         skill_name="$(basename "$skill_dir")"
@@ -41,15 +57,11 @@ fi
 # ── Codex-only skills ─────────────────────────────────────────────────────
 if [ -d "$DOTFILES_DIR/codex/skills" ]; then
     for skill_dir in "$DOTFILES_DIR/codex/skills"/*/; do
-        skill_name="$(basename "$skill_dir")"
-        ln -sfn "$skill_dir" "$CODEX_SKILLS/$skill_name"
+        ln -sfn "$skill_dir" "$CODEX_SKILLS/$(basename "$skill_dir")"
     done
 fi
 
 # ── Third-party skill packs ───────────────────────────────────────────────
-# For each repo in sources.txt: clone (or pull), pick skills (plugin.json
-# whitelist when present, else all SKILL.md minus excluded categories), and
-# fan each selected skill out FLAT to Claude + Codex + the Hermes deploy dir.
 deploy_pack_skill() {  # $1 = absolute skill dir
     local sdir="$1" name; name="$(basename "$sdir")"
     ln -sfn "$sdir" "$CLAUDE_SKILLS/$name"
@@ -68,14 +80,14 @@ if [ -f "$PACKS_DIR/sources.txt" ]; then
         owner="${url%/*}"; owner="${owner##*/}"
         pack="$PACKS_DIR/$owner-$base"
         if [ -d "$pack/.git" ]; then
-            git -C "$pack" pull --ff-only -q 2>/dev/null || echo "  warn: pull failed for $owner/$base"
+            [ "$PULL" = 1 ] && { git -C "$pack" pull --ff-only -q 2>/dev/null \
+                || echo "  warn: pull failed for $owner/$base"; }
         else
             echo "  cloning $owner/$base ..."
             git clone --depth 1 -q "$url" "$pack"
         fi
         PACK_NAMES="$PACK_NAMES $owner/$base"
 
-        # Selection: plugin.json whitelist if present, else filtered scan.
         if [ -f "$pack/.claude-plugin/plugin.json" ]; then
             python3 -c "import json,sys;print('\n'.join(json.load(open(sys.argv[1]))['skills']))" \
                 "$pack/.claude-plugin/plugin.json" | while IFS= read -r rel; do
@@ -93,7 +105,7 @@ if [ -f "$PACKS_DIR/sources.txt" ]; then
 fi
 
 # ── Report ────────────────────────────────────────────────────────────────
-echo "Built:"
+echo "Built ($([ "$PULL" = 1 ] && echo 'update: pulled packs' || echo 'local deploy')):"
 echo "  ~/.claude/CLAUDE.md        ($(wc -l < "$HOME/.claude/CLAUDE.md") lines)"
 echo "  ~/.codex/instructions.md   ($(wc -l < "$HOME/.codex/instructions.md") lines)"
 for skill_dir in "$DOTFILES_DIR/shared/skills"/*/; do
@@ -106,7 +118,6 @@ if [ -d "$DOTFILES_DIR/codex/skills" ]; then
 fi
 [ -n "$PACK_NAMES" ] && echo "  packs:$PACK_NAMES  ($(find "$PACKS_DEPLOY" -maxdepth 1 -type l | wc -l | tr -d ' ') skills)"
 for want in "$DOTFILES_DIR/shared/skills" "$PACKS_DEPLOY"; do
-    if ! grep -q "$want" "$HOME/.hermes/config.yaml" 2>/dev/null; then
-        echo "  hermes: WARNING — $want not in ~/.hermes/config.yaml skills.external_dirs"
-    fi
+    grep -q "$want" "$HOME/.hermes/config.yaml" 2>/dev/null \
+        || echo "  hermes: WARNING — $want not in ~/.hermes/config.yaml skills.external_dirs"
 done
