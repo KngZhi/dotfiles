@@ -1,0 +1,7 @@
+interface:
+  display_name: "Session Worklog"
+  short_description: "Summarize session to worklog"
+  default_prompt: "Use $worklog to summarize this session."
+
+policy:
+  allow_implicit_invocation: false

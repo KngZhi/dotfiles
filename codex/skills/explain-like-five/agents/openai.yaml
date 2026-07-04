@@ -1,0 +1,4 @@
+interface:
+  display_name: "Explain Like Five"
+  short_description: "Explain current questions in simple child-friendly terms"
+  default_prompt: "Use $explain-like-five to explain my current question like I am five."

@@ -20,27 +20,18 @@ The orignal prompt is from: https://www.dzombak.com/blog/2025/08/getting-good-re
 
 ## Process
 
-### 1. Planning & Staging
-
-Break complex work into 3-5 stages. Document in `IMPLEMENTATION_PLAN.md`:
-
-```markdown
-## Stage N: [Name]
-**Goal**: [Specific deliverable]
-**Success Criteria**: [Testable outcomes]
-**Tests**: [Specific test cases]
-**Status**: [Not Started|In Progress|Complete]
-```
-- Update status as you progress
-- Remove file when all stages are done
-
-### 2. Implementation Flow
+### 1. Implementation Flow
 
 1. **Understand** - Study existing patterns in codebase
 2. **Test** - Write test first (red)
 3. **Implement** - Minimal code to pass (green)
 4. **Refactor** - Clean up with tests passing
 5. **Commit** - With clear message linking to plan
+
+### 2. Session Startup
+
+- Start new sessions by running `git log --oneline -10` to quickly load context about recent work
+- This lets you continue where the last session left off without the user re-explaining
 
 ### 3. When Stuck (After 3 Attempts)
 
@@ -64,6 +55,13 @@ Break complex work into 3-5 stages. Document in `IMPLEMENTATION_PLAN.md`:
    - Different library/framework feature?
    - Different architectural pattern?
    - Remove abstraction instead of adding?
+
+### 4. Debugging with `git bisect`
+
+When tracking down when a bug was introduced, use `git bisect` to binary-search through commit history:
+- Write a test condition that reproduces the bug
+- Let `git bisect run` automate the search
+- This efficiently answers "which commit first caused this bug"
 
 ## Technical Standards
 
@@ -95,6 +93,17 @@ Break complex work into 3-5 stages. Document in `IMPLEMENTATION_PLAN.md`:
   # For brand-new files
   git restore --staged :/ && git add "path/to/file1" "path/to/file2" && git commit -m "<scoped message>" -- path/to/file1 path/to/file2
   ```
+
+### ast-grep Linting
+
+After writing or modifying Python/TypeScript code, run ast-grep to check for code issues:
+```bash
+sg scan --config ~/.claude/ast-grep-rules/sgconfig.yml <files_you_modified>
+```
+Fix any errors before committing. Rules include:
+- No bare `except:` without specifying exception type
+- Prefer logging over print()
+- No console.log() in production code
 
 ### Error Handling
 
@@ -148,6 +157,27 @@ When multiple valid approaches exist, choose based on:
 - Use existing test utilities/helpers
 - Tests should be deterministic
 
+## k2046 — 库存管理 CLI
+
+`k2046` 是 TextilCalido 库存管理系统的 CLI 工具，可直接在终端操作业务数据。
+
+```bash
+k2046 <command> <subcommand> [options]
+```
+
+| 命令 | 用途 | 子命令（2026-06 实测全集） |
+|------|------|-----------|
+| `report` | 销售/采购报表 | `sale-day`, `sale-week`, `sale-month`, `sale-detail`, `purchase-detail` |
+| `product` | 产品目录 | `list`, `categories`, `categories-flat`, `tags`, `check <skus>`, `batch-import <file>`, `update <sku>`, `update-image [sku]` |
+| `stock` | 库存管理 | `list`; `transfers list/get/update <id>` |
+| `purchase` | 采购单 | `list`, `get <id>`, `pays <ids>`, `update <id>`, `import-container <file>`, `commit <ids>`, `cancel <ids>`, `by-product <product-id>` |
+| `sale` | 销售单 | `list`, `get <id>`, `temps`, `by-product <product-id>`, `final-pays <ids>`, `print-retail <id>`, `create`, `create-from-text`, `edit-order <id> --plan <json>`（改单首选，自动处理 stocked/picked/shipped 回退恢复）, `save-commit <id>`, `unsave <id>`, `cancel <ids>`, `delete <ids>`, `delete-detail <id>`, `pay <id>`, `unpay <ids>`, `ship/unship <ids>`, `pick/unpick <ids>`, `confirm/unconfirm <ids>` |
+| `supplier` | 供应商 | `list` |
+| `customer` | 客户 | `list`, `create`, `update <id>` |
+| `shipper` | 物流网点 | `list`, `create`, `update <id>` |
+
+用 `k2046 <command> <subcommand> --help` 查看具体参数。注意：本表为实测全集；安装版 CLI 可能落后于 `~/repo/chile-mono/apps/k2046-cli` 源码，子命令缺失时先 `npx tsx src/cli.ts <cmd> --help` 对照源码再判断。
+
 ## cass — 跨 Agent 历史搜索
 
 解决问题前，先搜索是否有类似的历史记录。cass 索引了所有 Agent (Claude/Codex/Cursor/Gemini/OpenCode) 的会话历史。
@@ -179,29 +209,31 @@ cass health
 
 stdout = 数据，stderr = 诊断信息。Exit 0 = 成功。
 
----
+## Worklog — 会话总结
 
-## 并行策略
+每次会话结束时，如果用户要求总结，将会话摘要写入 `~/repo/org/worklog/YYYY-MM-DD.md`。
 
-**优先并行执行，最大化吞吐量：**
+- 一天一个文件，多次会话追加写入
+- 格式：
 
-- 优先使用 `background_task` 并行执行多个 explore/librarian agent
-- 搜索代码时，同时启动 2-3 个 explore agent 从不同角度搜索
-- 独立的任务要并行而非串行执行
-- 多个文件读取、多个搜索查询应该在同一个消息中并行发起
-- 不要等待一个 agent 完成再启动下一个，除非有数据依赖
+```markdown
+### HH:MM — [project-name] — [one-line summary]
 
-**示例：**
+**What was done:**
+- [concise bullet points]
+
+**Decisions:**
+- [key decisions and why, omit if none]
+
+**Files changed:**
+- `path/to/file` — [what changed]
+
+**Open items:**
+- [unresolved issues, omit if none]
 ```
-// 正确：并行启动多个搜索
-background_task(agent="explore", prompt="Find auth implementations...")
-background_task(agent="explore", prompt="Find error handling patterns...")
-background_task(agent="librarian", prompt="Find JWT best practices...")
 
-// 错误：串行等待
-result1 = task(...) // 等待完成
-result2 = task(...) // 再等待
-```
+- 如果文件不存在，先写 `# Worklog YYYY-MM-DD` 作为标题
+- 保持简洁，5-15 行，聚焦一周后回顾仍有价值的信息
 
 ---
 

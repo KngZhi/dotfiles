@@ -8,6 +8,9 @@ claude/cache/
 # Set keys in shell profile instead
 codex/auth.json
 
+# Work scripts with hardcoded credentials - never commit
+shared/ml-*.sh
+
 # Emacs generated directories
 emacs/projects
 emacs/transient/
