@@ -11,6 +11,16 @@ codex/auth.json
 # Work scripts with hardcoded credentials - never commit
 shared/ml-*.sh
 
+# Third-party skill packs: track only the source manifest; clone the rest
+shared/skill-packs/*
+!shared/skill-packs/sources.txt
+
+# claude/skills/ is a build output (== ~/.claude/skills). Track only
+# hand-authored skills; pack symlinks fanned out by build.sh stay untracked.
+claude/skills/*
+!claude/skills/remotion-best-practices
+!claude/skills/worklog
+
 # Emacs generated directories
 emacs/projects
 emacs/transient/

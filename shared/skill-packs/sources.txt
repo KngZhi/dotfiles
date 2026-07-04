@@ -1,0 +1,5 @@
+# Third-party skill packs shared to Claude + Codex + Hermes.
+# One git repo per line. Run shared/build.sh to clone/update + deploy.
+# Curated per each pack .claude-plugin/plugin.json when present.
+
+https://github.com/mattpocock/skills
