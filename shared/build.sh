@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds tool-specific instruction files from shared common + tool-specific parts,
+# Builds Claude instructions from shared common + Claude-specific parts,
 # and deploys skills to Claude Code, Codex, and (via external_dirs) Hermes.
 #
 # Usage:
@@ -40,10 +40,12 @@ mkdir -p "$CLAUDE_SKILLS" "$CODEX_SKILLS"
 # shared/install-automation.sh once to enable it. build.sh itself only
 # deploys; it never installs background jobs or rewrites git config.
 
-# ── Instructions ──────────────────────────────────────────────────────────
+# ── Claude instructions ───────────────────────────────────────────────────
 cat "$DOTFILES_DIR/shared/common.md" "$DOTFILES_DIR/claude/claude-only.md" \
     > "$HOME/.claude/CLAUDE.md"
-cp "$DOTFILES_DIR/shared/common.md" "$HOME/.codex/instructions.md"
+
+# Codex global instructions live in ~/.codex/AGENTS.md and are intentionally
+# managed separately rather than generated from shared/common.md.
 
 # ── Shared skills → Claude (relative link) + Codex (absolute) ─────────────
 if [ -d "$DOTFILES_DIR/shared/skills" ]; then
@@ -107,7 +109,6 @@ fi
 # ── Report ────────────────────────────────────────────────────────────────
 echo "Built ($([ "$PULL" = 1 ] && echo 'update: pulled packs' || echo 'local deploy')):"
 echo "  ~/.claude/CLAUDE.md        ($(wc -l < "$HOME/.claude/CLAUDE.md") lines)"
-echo "  ~/.codex/instructions.md   ($(wc -l < "$HOME/.codex/instructions.md") lines)"
 for skill_dir in "$DOTFILES_DIR/shared/skills"/*/; do
     [ -d "$skill_dir" ] && echo "  skill: $(basename "$skill_dir")  → claude + codex + hermes"
 done
