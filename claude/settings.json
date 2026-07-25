@@ -81,18 +81,6 @@
           }
         ]
       }
-    ],
-    "SessionEnd": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ~/.claude/hooks/session-to-memu.py",
-            "timeout": 10
-          }
-        ]
-      }
     ]
   },
   "statusLine": {

@@ -36,18 +36,15 @@ trust_level = "trusted"
 [notice.model_migrations]
 "gpt-5.2" = "gpt-5.2-codex"
 
-[mcp_servers.pal]
-command = "bash"
-args = ["-c", "for p in $(which uvx 2>/dev/null) $HOME/.local/bin/uvx /opt/homebrew/bin/uvx /usr/local/bin/uvx uvx; do [ -x \"$p\" ] && exec \"$p\" --from git+https://github.com/BeehiveInnovations/pal-mcp-server.git pal-mcp-server; done; echo 'uvx not found' >&2; exit 1"]
-tool_timeout_sec = 1200
+[mcp_servers.k2046]
+command = "node"
+args = ["/Users/amd/repo/chile-mono/apps/k2046-mcp/dist/index.js"]
 
-[mcp_servers.pal.env]
-PATH = "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:$HOME/.local/bin:$HOME/.cargo/bin:$HOME/bin"
-WORKSPACE_ROOT = "/Users/amd"
-CUSTOM_API_URL = "http://localhost:11434/v1"
-CUSTOM_MODEL_NAME = "llama3.2"
-DEFAULT_MODEL = "auto"
-DEFAULT_THINKING_MODE_THINKDEEP = "high"
-CONVERSATION_TIMEOUT_HOURS = "3"
-MAX_CONVERSATION_TURNS = "20"
-LOG_LEVEL = "DEBUG"
+[mcp_servers.k2046.tools.get_tool_output_schema]
+approval_mode = "approve"
+
+[mcp_servers.k2046.tools.get_stock_transfers]
+approval_mode = "approve"
+
+[mcp_servers.k2046.tools.get_stock_transfer_details]
+approval_mode = "approve"
