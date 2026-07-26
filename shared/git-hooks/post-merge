@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
-# After `git pull` on the dotfiles repo, redeploy skills + instructions
-# locally (no network). Wired via core.hooksPath=shared/git-hooks (build.sh).
+# After `git pull` on the dotfiles repo, redeploy skills locally (no network).
+# Wired via core.hooksPath=shared/git-hooks (build.sh).
 exec "$(git rev-parse --show-toplevel)/shared/build.sh"

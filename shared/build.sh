@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# Builds Claude instructions from shared common + Claude-specific parts,
-# and deploys skills to Claude Code, Codex, and (via external_dirs) Hermes.
+# Deploys skills to Claude Code, Codex, and (via external_dirs) Hermes.
 #
 # Usage:
-#   build.sh            Local deploy: rebuild instructions, relink skills,
-#                       clone any NEW packs. No network pull of existing packs.
+#   build.sh            Local deploy: relink skills and clone any NEW packs.
+#                       No network pull of existing packs.
 #   build.sh --update   Also `git pull` every existing pack, then deploy.
 #   build.sh --add URL  Append URL to skill-packs/sources.txt (if new), deploy.
 #
@@ -39,13 +38,6 @@ mkdir -p "$CLAUDE_SKILLS" "$CODEX_SKILLS"
 # Note: automation (git hooks + weekly LaunchAgent) is opt-in — run
 # shared/install-automation.sh once to enable it. build.sh itself only
 # deploys; it never installs background jobs or rewrites git config.
-
-# ── Claude instructions ───────────────────────────────────────────────────
-cat "$DOTFILES_DIR/shared/common.md" "$DOTFILES_DIR/claude/claude-only.md" \
-    > "$HOME/.claude/CLAUDE.md"
-
-# Codex global instructions live in ~/.codex/AGENTS.md and are intentionally
-# managed separately rather than generated from shared/common.md.
 
 # ── Shared skills → Claude (relative link) + Codex (absolute) ─────────────
 if [ -d "$DOTFILES_DIR/shared/skills" ]; then
@@ -108,7 +100,6 @@ fi
 
 # ── Report ────────────────────────────────────────────────────────────────
 echo "Built ($([ "$PULL" = 1 ] && echo 'update: pulled packs' || echo 'local deploy')):"
-echo "  ~/.claude/CLAUDE.md        ($(wc -l < "$HOME/.claude/CLAUDE.md") lines)"
 for skill_dir in "$DOTFILES_DIR/shared/skills"/*/; do
     [ -d "$skill_dir" ] && echo "  skill: $(basename "$skill_dir")  → claude + codex + hermes"
 done

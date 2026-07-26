@@ -3,6 +3,9 @@
 
 set -u
 
+BARK_DEVICE_KEY="${BARK_DEVICE_KEY:-}"
+[ -n "$BARK_DEVICE_KEY" ] || exit 0
+
 urlencode_py() {
   python3 - <<'PY' "$1" 2>/dev/null
 import sys
@@ -52,7 +55,7 @@ mkdir -p "$(dirname "$log_file")" 2>/dev/null || true
 
 curl --silent --show-error --fail \
   --connect-timeout 2 --max-time 5 \
-  -X POST "https://api.day.app/A4pYR9VMy8rr6nqnKUdnyE/${title}/${body}" \
+  -X POST "https://api.day.app/${BARK_DEVICE_KEY}/${title}/${body}" \
   -H "Content-Type: application/json" \
   -d '{
     "sound": "glass",
