@@ -3,3 +3,5 @@
 # Curated per each pack .claude-plugin/plugin.json when present.
 
 https://github.com/mattpocock/skills
+https://github.com/lencx/skills
+https://github.com/Yevanchen/reclaim-code-entropy

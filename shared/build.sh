@@ -64,7 +64,7 @@ deploy_pack_skill() {  # $1 = absolute skill dir
     echo "  pack-skill: $name  → claude + codex + hermes"
 }
 
-PACK_NAMES=""
+PACK_NAMES=""; KNOWN_PACKS=""
 if [ -f "$PACKS_DIR/sources.txt" ]; then
     rm -rf "$PACKS_DEPLOY"; mkdir -p "$PACKS_DEPLOY"
     while IFS= read -r url; do
@@ -73,6 +73,7 @@ if [ -f "$PACKS_DIR/sources.txt" ]; then
         base="${url##*/}"; base="${base%.git}"
         owner="${url%/*}"; owner="${owner##*/}"
         pack="$PACKS_DIR/$owner-$base"
+        KNOWN_PACKS="$KNOWN_PACKS $owner-$base"
         if [ -d "$pack/.git" ]; then
             [ "$PULL" = 1 ] && { git -C "$pack" pull --ff-only -q 2>/dev/null \
                 || echo "  warn: pull failed for $owner/$base"; }
@@ -83,8 +84,24 @@ if [ -f "$PACKS_DIR/sources.txt" ]; then
         PACK_NAMES="$PACK_NAMES $owner/$base"
 
         if [ -f "$pack/.claude-plugin/plugin.json" ]; then
-            python3 -c "import json,sys;print('\n'.join(json.load(open(sys.argv[1]))['skills']))" \
-                "$pack/.claude-plugin/plugin.json" | while IFS= read -r rel; do
+            # plugin.json "skills" is either an array of skill paths, or a
+            # single directory string to scan for SKILL.md files (both are
+            # valid per the claude-code-plugin-manifest schema).
+            python3 -c "
+import json, os, sys
+skills = json.load(open(sys.argv[1])).get('skills') or []
+pack = sys.argv[2]
+if isinstance(skills, str):
+    skills = [skills]
+for entry in skills:
+    base = os.path.join(pack, entry.lstrip('./'))
+    if os.path.isfile(os.path.join(base, 'SKILL.md')):
+        print(os.path.relpath(base, pack))
+    else:
+        for root, _, files in os.walk(base):
+            if 'SKILL.md' in files:
+                print(os.path.relpath(root, pack))
+" "$pack/.claude-plugin/plugin.json" "$pack" | while IFS= read -r rel; do
                     sdir="$pack/${rel#./}"
                     [ -f "$sdir/SKILL.md" ] && deploy_pack_skill "$sdir"
                 done
@@ -96,7 +113,24 @@ if [ -f "$PACKS_DIR/sources.txt" ]; then
             done
         fi
     done < "$PACKS_DIR/sources.txt"
+
+    # Remove clones of packs no longer listed in sources.txt.
+    for d in "$PACKS_DIR"/*/; do
+        name="$(basename "$d")"
+        [ "$name" = ".deploy" ] && continue
+        case " $KNOWN_PACKS " in *" $name "*) ;; *)
+            echo "  removing dropped pack: $name"; rm -rf "$d" ;;
+        esac
+    done
 fi
+
+# Prune dangling skill symlinks left by renamed/removed sources (packs or
+# shared/codex skills). A broken symlink is never useful; real dirs are kept.
+for base in "$CLAUDE_SKILLS" "$CODEX_SKILLS"; do
+    for l in "$base"/*; do
+        [ -L "$l" ] && [ ! -e "$l" ] && { rm -f "$l"; echo "  pruned dangling: ${l/#$HOME/~}"; }
+    done
+done
 
 # ── Report ────────────────────────────────────────────────────────────────
 echo "Built ($([ "$PULL" = 1 ] && echo 'update: pulled packs' || echo 'local deploy')):"
