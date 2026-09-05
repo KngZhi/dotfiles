@@ -1,4 +1,0 @@
-interface:
-  display_name: "货柜整理与成本计算"
-  short_description: "自动归档货柜材料、查询船期并补齐成本参数"
-  default_prompt: "Use $container-cost to organize my new container documents, look up the official ETA, and tell me only what data is still missing."

@@ -39,10 +39,30 @@ mkdir -p "$CLAUDE_SKILLS" "$CODEX_SKILLS"
 # shared/install-automation.sh once to enable it. build.sh itself only
 # deploys; it never installs background jobs or rewrites git config.
 
+# Retire only links installed from this checkout; preserve custom skill links.
+for skill_name in container-cost chile-landed-cost-calculator; do
+    for skill_link in "$CLAUDE_SKILLS/$skill_name" "$CODEX_SKILLS/$skill_name"; do
+        [ -L "$skill_link" ] || continue
+        skill_target="$(readlink "$skill_link")"
+        skill_target="${skill_target%/}"
+        if [ "$skill_target" = "$DOTFILES_DIR/shared/skills/$skill_name" ] || {
+            [ "$skill_link" = "$CLAUDE_SKILLS/$skill_name" ] &&
+            [ "$skill_target" = "../../shared/skills/$skill_name" ]
+        }; then
+            rm -f "$skill_link"
+            echo "  retired global skill: $skill_name"
+        fi
+    done
+done
+
 # ── Shared skills → Claude (relative link) + Codex (absolute) ─────────────
 if [ -d "$DOTFILES_DIR/shared/skills" ]; then
     for skill_dir in "$DOTFILES_DIR/shared/skills"/*/; do
         skill_name="$(basename "$skill_dir")"
+        # Business skills belong to chile-ops, including untracked legacy copies.
+        case "$skill_name" in
+            container-cost|chile-landed-cost-calculator) continue ;;
+        esac
         ln -sfn "../../shared/skills/$skill_name" "$CLAUDE_SKILLS/$skill_name"
         ln -sfn "$skill_dir" "$CODEX_SKILLS/$skill_name"
     done
@@ -125,9 +145,12 @@ for entry in skills:
 fi
 
 # Prune dangling skill symlinks left by renamed/removed sources (packs or
-# shared/codex skills). A broken symlink is never useful; real dirs are kept.
+# shared/codex skills). Retired names were handled above; keep custom links.
 for base in "$CLAUDE_SKILLS" "$CODEX_SKILLS"; do
     for l in "$base"/*; do
+        case "${l##*/}" in
+            container-cost|chile-landed-cost-calculator) continue ;;
+        esac
         [ -L "$l" ] && [ ! -e "$l" ] && { rm -f "$l"; echo "  pruned dangling: ${l/#$HOME/~}"; }
     done
 done
@@ -135,7 +158,11 @@ done
 # ── Report ────────────────────────────────────────────────────────────────
 echo "Built ($([ "$PULL" = 1 ] && echo 'update: pulled packs' || echo 'local deploy')):"
 for skill_dir in "$DOTFILES_DIR/shared/skills"/*/; do
-    [ -d "$skill_dir" ] && echo "  skill: $(basename "$skill_dir")  → claude + codex + hermes"
+    skill_name="$(basename "$skill_dir")"
+    case "$skill_name" in
+        container-cost|chile-landed-cost-calculator) continue ;;
+    esac
+    [ -d "$skill_dir" ] && echo "  skill: $skill_name  → claude + codex + hermes"
 done
 if [ -d "$DOTFILES_DIR/codex/skills" ]; then
     for skill_dir in "$DOTFILES_DIR/codex/skills"/*/; do
