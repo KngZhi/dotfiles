@@ -1,0 +1,15 @@
+{
+  "rows": [
+    {
+      "id": "SKU1",
+      "unitPriceCny": 1,
+      "totalQuantity": 1000,
+      "totalVolumeM3": 68
+    }
+  ],
+  "config": {
+    "seaFreightUsd": 1000,
+    "inlandPayer": "factory",
+    "usdClp": 900
+  }
+}

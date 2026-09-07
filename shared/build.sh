@@ -20,6 +20,8 @@ CODEX_SKILLS="$HOME/.codex/skills"            # plain machine-local dir
 PACKS_DIR="$DOTFILES_DIR/shared/skill-packs"
 PACKS_DEPLOY="$PACKS_DIR/.deploy"             # flat view of curated pack skills, for Hermes
 PACK_EXCLUDE="deprecated in-progress out-of-scope personal .out-of-scope"
+# Pack skills dropped by name (never used; see git log for the usage audit).
+PACK_SKILL_EXCLUDE="keel research resolving-merge-conflicts domain-modeling"
 
 PULL=0
 while [ $# -gt 0 ]; do
@@ -62,6 +64,7 @@ fi
 # ── Third-party skill packs ───────────────────────────────────────────────
 deploy_pack_skill() {  # $1 = absolute skill dir
     local sdir="$1" name; name="$(basename "$sdir")"
+    case " $PACK_SKILL_EXCLUDE " in *" $name "*) return 0;; esac
     ln -sfn "$sdir" "$CLAUDE_SKILLS/$name"
     ln -sfn "$sdir" "$CODEX_SKILLS/$name"
     ln -sfn "$sdir" "$PACKS_DEPLOY/$name"

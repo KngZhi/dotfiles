@@ -1,0 +1,7 @@
+interface:
+  display_name: "Reuse"
+  short_description: "Compare mature reuse with custom implementation"
+  default_prompt: "Use $reuse to decide whether this plan should adopt a mature solution, build locally, or combine both."
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Claude Simplify"
+  short_description: "Simplify recent code without changing behavior"
+  default_prompt: "Use $claude-simplify to simplify the code changed in this task without changing behavior."
+
+policy:
+  allow_implicit_invocation: true

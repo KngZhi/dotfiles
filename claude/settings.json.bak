@@ -5,72 +5,41 @@
   },
   "permissions": {
     "allow": [
-      "mcp__zen__challenge",
-      "mcp__zen__thinkdeep",
       "Bash(find:*)",
       "Bash(python3:*)",
       "Bash(python:*)",
       "Bash(source:*)",
-      "mcp__zen__chat",
       "Bash(npm run:*)",
       "Bash(node:*)",
       "Bash(mv:*)",
       "Bash(ls:*)",
-      "mcp__server-sequential-thinking__sequentialthinking",
       "Bash(grep:*)",
       "Bash(cat:*)",
       "Bash(rg:*)",
       "Bash(git checkout:*)",
-      "mcp__excel-mcp-server__readDataBySheetName",
       "Bash(git add:*)",
-      "mcp__zen__analyze",
-      "mcp__zen__codereview",
       "Bash(git commit:*)",
       "Bash(pip3 install:*)",
-      "mcp__zen__debug",
       "Bash(npm test)",
       "Bash(npx tsx:*)",
-      "mcp__serena__check_onboarding_performed",
       "Bash(./venv/bin/pip install:*)",
       "Bash(rm:*)",
       "Bash(pip install:*)",
-      "mcp__playwright__playwright_navigate",
       "Bash(npx:*)",
       "Bash(npm install:*)",
-      "mcp__serena__activate_project",
       "Bash(git log:*)",
       "Bash(./node_modules/.bin/tsc:*)",
       "Bash(npm test:*)",
       "Bash(xargs ls:*)",
       "Bash(xargs cat:*)",
       "Bash(pnpm tsx:*)",
-      "Bash(./apps/inventory_projection/venv/bin/python:*)",
-      "mcp__zen__clink",
-      "mcp__Context7__resolve-library-id",
-      "mcp__Context7__get-library-docs",
-      "mcp__pal__listmodels",
-      "mcp__pal__clink",
-      "mcp__pal__thinkdeep",
-      "mcp__pal__consensus",
-      "mcp__pal__chat"
+      "Bash(./apps/inventory_projection/venv/bin/python:*)"
     ],
     "deny": [],
-    "defaultMode": "plan"
+    "defaultMode": "auto"
   },
-  "model": "opus",
+  "model": "opus[1m]",
   "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Edit|MultiEdit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ~/.claude/hooks/ast-grep-lint.sh",
-            "timeout": 30
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "matcher": "",
@@ -89,13 +58,43 @@
     "padding": 0
   },
   "enabledPlugins": {
-    "ralph-wiggum@claude-plugins-official": true,
-    "typescript-lsp@claude-plugins-official": true
+    "code-simplifier@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true,
+    "codex@openai-codex": true,
+    "frontend-design@claude-plugins-official": true,
+    "feature-dev@claude-code-plugins": true,
+    "code-review@claude-code-plugins": true,
+    "eli5@claude-community": true
+  },
+  "extraKnownMarketplaces": {
+    "openai-codex": {
+      "source": {
+        "source": "github",
+        "repo": "openai/codex-plugin-cc"
+      }
+    },
+    "claude-code-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-code"
+      }
+    },
+    "claude-community": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-community"
+      }
+    }
   },
   "alwaysThinkingEnabled": true,
+  "effortLevel": "xhigh",
+  "skipDangerousModePermissionPrompt": true,
+  "skipWorkflowUsageWarning": true,
+  "theme": "dark",
   "teammateMode": "in-process",
+  "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true,
   "feedbackSurveyState": {
     "lastShownTime": 1755616409562
-  },
-  "fastMode": true
+  }
 }

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create GitHub Issue"
+  short_description: "Create Project-linked GitHub issues with gh"
+  default_prompt: "Use $create-github-issue to create a structured GitHub issue with gh and verify its shared Project fields."
