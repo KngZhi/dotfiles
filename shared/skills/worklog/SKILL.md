@@ -1,11 +1,12 @@
 ---
 name: worklog
-description: Summarize the current conversation session and append a structured entry to the worklog. Use when the user asks to log, summarize, or record what was done in this session — e.g. "write worklog", "log this session", "总结这次会话", "记录一下".
+description: Append a session summary to the daily worklog when the user asks to save or log the session.
 ---
 
 # Session Worklog
 
 Summarize the current conversation and append the summary to the daily worklog file.
+An ordinary request for a conversational summary does not require saving a log.
 
 ## Steps
 

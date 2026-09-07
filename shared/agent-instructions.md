@@ -17,8 +17,8 @@ independently reviewable, and passes its own CI. Put foundational changes at the
 bottom and dependent changes above them. Use separate stacks for independent or
 parallel work.
 
-If `gh stack` is unavailable for the target repository, report the constraint
-before implementation. A size-approval label or removing substantive changes
+When the work requires a stack and `gh stack` is unavailable, report that
+constraint before implementation. A size-approval label or removing substantive changes
 is not a substitute for splitting; only a human may approve an irreducibly
 large PR such as a generated-code or mechanical-rename change.
 

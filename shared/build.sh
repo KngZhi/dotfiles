@@ -1,156 +1,218 @@
 #!/usr/bin/env bash
-# Deploys skills to Claude Code, Codex, and (via external_dirs) Hermes.
-#
-# Usage:
-#   build.sh            Local deploy: relink skills and clone any NEW packs.
-#                       No network pull of existing packs.
-#   build.sh --update   Also `git pull` every existing pack, then deploy.
-#   build.sh --add URL  Append URL to skill-packs/sources.txt (if new), deploy.
-#
-# Rules:
-#   - shared/skills/         → skills I hand-author, shared to all three tools
-#   - claude/skills/         → Claude-only hand-authored skills (tracked ones)
-#   - codex/skills/          → Codex-only hand-authored skills
-#   - shared/skill-packs/    → third-party packs; a repo URL per line in sources.txt
+# Deploy portable skills and shared instructions. Existing packs update only with --update.
+# DOTFILES_DEPLOY_HOME redirects runtime outputs for isolated validation.
 set -euo pipefail
 
 DOTFILES_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-CLAUDE_SKILLS="$DOTFILES_DIR/claude/skills"   # == ~/.claude/skills (symlinked)
-CODEX_SKILLS="$HOME/.codex/skills"            # plain machine-local dir
+DEPLOY_HOME="${DOTFILES_DEPLOY_HOME:-$HOME}"
+CLAUDE_SKILLS="$DEPLOY_HOME/.claude/skills"
+CODEX_SKILLS="$DEPLOY_HOME/.codex/skills"
 PACKS_DIR="$DOTFILES_DIR/shared/skill-packs"
-PACKS_DEPLOY="$PACKS_DIR/.deploy"             # flat view of curated pack skills, for Hermes
-PACK_EXCLUDE="deprecated in-progress out-of-scope personal .out-of-scope"
-# Pack skills dropped by name (never used; see git log for the usage audit).
+PACKS_DEPLOY="$PACKS_DIR/.deploy"
+OVERRIDES="$DOTFILES_DIR/shared/skill-overrides"
+PACK_EXCLUDE="deprecated in-progress misc out-of-scope personal .out-of-scope"
 PACK_SKILL_EXCLUDE="keel research resolving-merge-conflicts domain-modeling"
 
 PULL=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --update) PULL=1 ;;
-        --add) shift; [ -n "${1:-}" ] || { echo "--add needs a repo URL" >&2; exit 2; }
-               grep -qxF "$1" "$PACKS_DIR/sources.txt" 2>/dev/null || echo "$1" >> "$PACKS_DIR/sources.txt"
-               echo "  added source: $1" ;;
+        --add)
+            shift
+            [ -n "${1:-}" ] || { echo "--add needs a repo URL" >&2; exit 2; }
+            grep -qxF "$1" "$PACKS_DIR/sources.txt" 2>/dev/null ||
+                printf '%s\n' "$1" >> "$PACKS_DIR/sources.txt"
+            ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
     shift
 done
 
-mkdir -p "$CLAUDE_SKILLS" "$CODEX_SKILLS"
-
-# ── Shared instructions → ~/.claude/CLAUDE.md + ~/.codex/AGENTS.md ────────
-ln -sfn "$DOTFILES_DIR/shared/agent-instructions.md" "$HOME/.claude/CLAUDE.md"
-ln -sfn "$DOTFILES_DIR/shared/agent-instructions.md" "$HOME/.codex/AGENTS.md"
-
-# Note: automation (git hooks + weekly LaunchAgent) is opt-in — run
-# shared/install-automation.sh once to enable it. build.sh itself only
-# deploys; it never installs background jobs or rewrites git config.
-
-# ── Shared skills → Claude (relative link) + Codex (absolute) ─────────────
-if [ -d "$DOTFILES_DIR/shared/skills" ]; then
-    for skill_dir in "$DOTFILES_DIR/shared/skills"/*/; do
-        skill_name="$(basename "$skill_dir")"
-        ln -sfn "../../shared/skills/$skill_name" "$CLAUDE_SKILLS/$skill_name"
-        ln -sfn "$skill_dir" "$CODEX_SKILLS/$skill_name"
-    done
-fi
-
-# ── Codex-only skills ─────────────────────────────────────────────────────
-if [ -d "$DOTFILES_DIR/codex/skills" ]; then
-    for skill_dir in "$DOTFILES_DIR/codex/skills"/*/; do
-        ln -sfn "$skill_dir" "$CODEX_SKILLS/$(basename "$skill_dir")"
-    done
-fi
-
-# ── Third-party skill packs ───────────────────────────────────────────────
-deploy_pack_skill() {  # $1 = absolute skill dir
-    local sdir="$1" name; name="$(basename "$sdir")"
-    case " $PACK_SKILL_EXCLUDE " in *" $name "*) return 0;; esac
-    ln -sfn "$sdir" "$CLAUDE_SKILLS/$name"
-    ln -sfn "$sdir" "$CODEX_SKILLS/$name"
-    ln -sfn "$sdir" "$PACKS_DEPLOY/$name"
-    echo "  pack-skill: $name  → claude + codex + hermes"
+# Only links owned by this checkout may be replaced. Real directories and
+# custom links belong to the user, including broken links outside this checkout.
+owned_link() {
+    [ -L "$1" ] || return 1
+    case "$(readlink "$1")" in
+        "$DOTFILES_DIR/"*) return 0 ;;
+        ../../shared/skills/*)
+            [ "$(cd "$(dirname "$1")" && pwd -P)" = "$DOTFILES_DIR/claude/skills" ] ;;
+        *) return 1 ;;
+    esac
 }
 
-PACK_NAMES=""; KNOWN_PACKS=""
+link_skill() {
+    local source="$1" destination="$2" link_target="$1"
+    if [ -e "$destination" ] || [ -L "$destination" ]; then
+        owned_link "$destination" || {
+            echo "Refusing to replace unmanaged skill: $destination" >&2; return 1;
+        }
+    fi
+    # Preserve the tracked relative Claude links when deploying from the base checkout.
+    if [ "$(cd "$(dirname "$destination")" && pwd -P)" = "$DOTFILES_DIR/claude/skills" ]; then
+        case "$source" in
+            "$DOTFILES_DIR/shared/skills/"*) link_target="../../shared/skills/${source##*/}" ;;
+        esac
+    fi
+    ln -sfn "$link_target" "$destination"
+}
+
+# Build a complete skill view before publishing runtime links. Removed upstream
+# resources disappear on rebuild, while original pack checkouts remain untouched.
+mkdir -p "$PACKS_DIR"
+STAGING="$(mktemp -d "$PACKS_DIR/.build.XXXXXX")"
+PUBLISHED=0
+cleanup() {
+    if [ "$PUBLISHED" = 0 ] && [ -d "$STAGING/previous" ]; then
+        [ ! -e "$PACKS_DEPLOY" ] || mv "$PACKS_DEPLOY" "$STAGING/failed"
+        mv "$STAGING/previous" "$PACKS_DEPLOY"
+    fi
+    rm -rf "$STAGING"
+}
+trap cleanup EXIT
+mkdir "$STAGING/packs" "$STAGING/local"
+
+add_local_skill() {
+    local sdir="$1" name="${1##*/}"
+    [ -f "$sdir/SKILL.md" ] || return 0
+    [ ! -e "$STAGING/local/$name" ] || {
+        echo "Duplicate local skill: $name" >&2; return 1;
+    }
+    ln -s "$sdir" "$STAGING/local/$name"
+}
+
+for local_root in "$DOTFILES_DIR/shared/skills" "$DOTFILES_DIR/shared/.agents/skills" "$DOTFILES_DIR/shared/.claude/skills"; do
+    [ -d "$local_root" ] || continue
+    for sdir in "$local_root"/*; do add_local_skill "$sdir"; done
+done
+for sdir in "$DOTFILES_DIR/codex/skills"/*; do
+    name="${sdir##*/}"
+    [ -f "$sdir/SKILL.md" ] || continue
+    [ ! -e "$STAGING/local/$name" ] || {
+        echo "Shared/Codex skill collision: $name" >&2; exit 1;
+    }
+done
+
+deploy_pack_skill() {
+    local sdir="$1" name="${1##*/}"
+    case " $PACK_SKILL_EXCLUDE " in *" $name "*) return 0 ;; esac
+    [ ! -e "$STAGING/local/$name" ] && [ ! -e "$STAGING/packs/$name" ] &&
+        [ ! -f "$DOTFILES_DIR/codex/skills/$name/SKILL.md" ] || {
+        echo "Duplicate skill name: $name" >&2; return 1;
+    }
+    if [ -d "$OVERRIDES/$name" ]; then
+        mkdir "$STAGING/packs/$name"
+        cp -R "$sdir/." "$STAGING/packs/$name/"
+        cp -R "$OVERRIDES/$name/." "$STAGING/packs/$name/"
+    else
+        ln -s "$sdir" "$STAGING/packs/$name"
+    fi
+}
+
 if [ -f "$PACKS_DIR/sources.txt" ]; then
-    rm -rf "$PACKS_DEPLOY"; mkdir -p "$PACKS_DEPLOY"
     while IFS= read -r url; do
-        url="${url%%#*}"; url="$(echo "$url" | tr -d '[:space:]')"
-        [ -z "$url" ] && continue
+        url="${url%%#*}"
+        url="$(printf '%s' "$url" | tr -d '[:space:]')"
+        [ -n "$url" ] || continue
         base="${url##*/}"; base="${base%.git}"
         owner="${url%/*}"; owner="${owner##*/}"
         pack="$PACKS_DIR/$owner-$base"
-        KNOWN_PACKS="$KNOWN_PACKS $owner-$base"
         if [ -d "$pack/.git" ]; then
-            [ "$PULL" = 1 ] && { git -C "$pack" pull --ff-only -q 2>/dev/null \
-                || echo "  warn: pull failed for $owner/$base"; }
+            if [ "$PULL" = 1 ]; then
+                if [ -n "$(git -C "$pack" status --porcelain)" ]; then
+                    echo "Preserving modified pack: $pack" >&2
+                else
+                    git -C "$pack" pull --ff-only
+                fi
+            fi
         else
-            echo "  cloning $owner/$base ..."
-            git clone --depth 1 -q "$url" "$pack"
+            git clone --depth 1 "$url" "$pack"
         fi
-        PACK_NAMES="$PACK_NAMES $owner/$base"
 
-        if [ -f "$pack/.claude-plugin/plugin.json" ]; then
-            # plugin.json "skills" is either an array of skill paths, or a
-            # single directory string to scan for SKILL.md files (both are
-            # valid per the claude-code-plugin-manifest schema).
-            python3 -c "
-import json, os, sys
-skills = json.load(open(sys.argv[1])).get('skills') or []
-pack = sys.argv[2]
-if isinstance(skills, str):
-    skills = [skills]
-for entry in skills:
-    base = os.path.join(pack, entry.lstrip('./'))
-    if os.path.isfile(os.path.join(base, 'SKILL.md')):
-        print(os.path.relpath(base, pack))
-    else:
-        for root, _, files in os.walk(base):
-            if 'SKILL.md' in files:
-                print(os.path.relpath(root, pack))
-" "$pack/.claude-plugin/plugin.json" "$pack" | while IFS= read -r rel; do
-                    sdir="$pack/${rel#./}"
-                    [ -f "$sdir/SKILL.md" ] && deploy_pack_skill "$sdir"
-                done
+        manifest="$pack/.claude-plugin/plugin.json"
+        [ -f "$manifest" ] || manifest="$pack/.codex-plugin/plugin.json"
+        if [ -f "$manifest" ]; then
+            python3 - "$manifest" "$pack" <<'PY' > "$STAGING/skills.txt"
+import json, pathlib, sys
+pack = pathlib.Path(sys.argv[2]).resolve()
+skills = json.loads(pathlib.Path(sys.argv[1]).read_text()).get("skills") or ["skills"]
+for entry in [skills] if isinstance(skills, str) else skills:
+    base = (pack / entry).resolve()
+    if pack not in base.parents and base != pack:
+        raise SystemExit(f"Skill path escapes pack: {entry}")
+    paths = [base / "SKILL.md"] if (base / "SKILL.md").is_file() else sorted(base.rglob("SKILL.md"))
+    for path in paths:
+        print(path.parent)
+PY
         else
-            find "$pack" -name SKILL.md -not -path '*/.git/*' | while IFS= read -r smd; do
-                sdir="$(dirname "$smd")"; skip=""
-                for ex in $PACK_EXCLUDE; do case "$sdir" in */"$ex"/*) skip=1;; esac; done
-                [ -z "$skip" ] && deploy_pack_skill "$sdir"
-            done
+            find "$pack" -name .git -prune -o -name SKILL.md -exec dirname {} \; > "$STAGING/skills.txt"
         fi
+        while IFS= read -r sdir; do
+            skip=""
+            for ex in $PACK_EXCLUDE; do case "$sdir" in */"$ex"/*) skip=1 ;; esac; done
+            [ -n "$skip" ] || deploy_pack_skill "$sdir"
+        done < "$STAGING/skills.txt"
     done < "$PACKS_DIR/sources.txt"
-
-    # Remove clones of packs no longer listed in sources.txt.
-    for d in "$PACKS_DIR"/*/; do
-        name="$(basename "$d")"
-        [ "$name" = ".deploy" ] && continue
-        case " $KNOWN_PACKS " in *" $name "*) ;; *)
-            echo "  removing dropped pack: $name"; rm -rf "$d" ;;
-        esac
-    done
 fi
 
-# Prune dangling skill symlinks left by renamed/removed sources (packs or
-# shared/codex skills). A broken symlink is never useful; real dirs are kept.
-for base in "$CLAUDE_SKILLS" "$CODEX_SKILLS"; do
-    for l in "$base"/*; do
-        [ -L "$l" ] && [ ! -e "$l" ] && { rm -f "$l"; echo "  pruned dangling: ${l/#$HOME/~}"; }
+# A removed/renamed upstream skill must not silently strand a maintained override.
+for override in "$OVERRIDES"/*; do
+    [ -d "$override" ] || continue
+    [ -f "$STAGING/packs/${override##*/}/SKILL.md" ] || {
+        echo "Override has no selected upstream skill: $override" >&2; exit 1;
+    }
+done
+
+mkdir -p "$CLAUDE_SKILLS" "$CODEX_SKILLS"
+# Preflight all destinations before replacing the generated pack view.
+for dest in "$DEPLOY_HOME/.claude/CLAUDE.md" "$DEPLOY_HOME/.codex/AGENTS.md"; do
+    if [ -e "$dest" ] || [ -L "$dest" ]; then
+        owned_link "$dest" || { echo "Refusing to replace unmanaged instructions: $dest" >&2; exit 1; }
+    fi
+done
+for entry in "$STAGING/local"/* "$STAGING/packs"/* "$DOTFILES_DIR/codex/skills"/*; do
+    [ -f "$entry/SKILL.md" ] || continue
+    for dest in "$CLAUDE_SKILLS/${entry##*/}" "$CODEX_SKILLS/${entry##*/}"; do
+        case "$entry:$dest" in "$DOTFILES_DIR/codex/skills/"*:"$CLAUDE_SKILLS/"*) continue ;; esac
+        if [ -e "$dest" ] || [ -L "$dest" ]; then
+            owned_link "$dest" || { echo "Refusing to replace unmanaged skill: $dest" >&2; exit 1; }
+        fi
     done
 done
 
-# ── Report ────────────────────────────────────────────────────────────────
-echo "Built ($([ "$PULL" = 1 ] && echo 'update: pulled packs' || echo 'local deploy')):"
-for skill_dir in "$DOTFILES_DIR/shared/skills"/*/; do
-    [ -d "$skill_dir" ] && echo "  skill: $(basename "$skill_dir")  → claude + codex + hermes"
+# .deploy is generated output. Keep the previous view until link publication succeeds.
+[ ! -L "$PACKS_DEPLOY" ] || { echo "Expected a generated directory: $PACKS_DEPLOY" >&2; exit 1; }
+if [ -e "$PACKS_DEPLOY" ]; then mv "$PACKS_DEPLOY" "$STAGING/previous"; fi
+mv "$STAGING/packs" "$PACKS_DEPLOY"
+for entry in "$STAGING/local"/* "$PACKS_DEPLOY"/*; do
+    [ -f "$entry/SKILL.md" ] || continue
+    source="$entry"
+    case "$entry" in "$STAGING/local/"*) source="$(readlink "$entry")" ;; esac
+    link_skill "$source" "$CLAUDE_SKILLS/${entry##*/}"
+    link_skill "$source" "$CODEX_SKILLS/${entry##*/}"
 done
-if [ -d "$DOTFILES_DIR/codex/skills" ]; then
-    for skill_dir in "$DOTFILES_DIR/codex/skills"/*/; do
-        [ -d "$skill_dir" ] && echo "  skill: $(basename "$skill_dir")  → codex"
+for sdir in "$DOTFILES_DIR/codex/skills"/*; do
+    [ -f "$sdir/SKILL.md" ] || continue
+    link_skill "$sdir" "$CODEX_SKILLS/${sdir##*/}"
+done
+
+# Retire only our links whose names are no longer in the selected catalog.
+for target in "$CLAUDE_SKILLS" "$CODEX_SKILLS"; do
+    for link in "$target"/*; do
+        owned_link "$link" || continue
+        name="${link##*/}"
+        [ -f "$STAGING/local/$name/SKILL.md" ] && continue
+        [ -f "$PACKS_DEPLOY/$name/SKILL.md" ] && continue
+        [ "$target" = "$CODEX_SKILLS" ] && [ -f "$DOTFILES_DIR/codex/skills/$name/SKILL.md" ] && continue
+        rm "$link"
+        echo "Retired managed link: $link"
     done
-fi
-[ -n "$PACK_NAMES" ] && echo "  packs:$PACK_NAMES  ($(find "$PACKS_DEPLOY" -maxdepth 1 -type l | wc -l | tr -d ' ') skills)"
+done
+link_skill "$DOTFILES_DIR/shared/agent-instructions.md" "$DEPLOY_HOME/.claude/CLAUDE.md"
+link_skill "$DOTFILES_DIR/shared/agent-instructions.md" "$DEPLOY_HOME/.codex/AGENTS.md"
+PUBLISHED=1
+echo "Deployed skills and instructions from $DOTFILES_DIR"
+# Hermes reads these directories directly; configuration remains user-owned.
 for want in "$DOTFILES_DIR/shared/skills" "$PACKS_DEPLOY"; do
-    grep -q "$want" "$HOME/.hermes/config.yaml" 2>/dev/null \
-        || echo "  hermes: WARNING — $want not in ~/.hermes/config.yaml skills.external_dirs"
+    grep -qF "$want" "$DEPLOY_HOME/.hermes/config.yaml" 2>/dev/null ||
+        echo "Hermes: $want is not listed in skills.external_dirs"
 done

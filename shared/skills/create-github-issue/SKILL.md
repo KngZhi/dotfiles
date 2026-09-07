@@ -1,6 +1,6 @@
 ---
 name: create-github-issue
-description: Create structured GitHub issues with `gh`, add them to KngZhi's shared Project, set planning fields, and verify the result. Use when the user asks to create, open, file, or record a GitHub Issue, Epic, Work item, or Spike in any repository. 中文触发包括“开 issue”、“创建 issue”、“记录成 issue”和“建 Epic/Work/Spike”。
+description: Create GitHub issues and set KngZhi Project fields when the user asks to file an issue, Epic, Work item, or Spike.
 ---
 
 # Create GitHub Issue
