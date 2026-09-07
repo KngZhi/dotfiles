@@ -35,6 +35,10 @@ done
 
 mkdir -p "$CLAUDE_SKILLS" "$CODEX_SKILLS"
 
+# ── Shared instructions → ~/.claude/CLAUDE.md + ~/.codex/AGENTS.md ────────
+ln -sfn "$DOTFILES_DIR/shared/agent-instructions.md" "$HOME/.claude/CLAUDE.md"
+ln -sfn "$DOTFILES_DIR/shared/agent-instructions.md" "$HOME/.codex/AGENTS.md"
+
 # Note: automation (git hooks + weekly LaunchAgent) is opt-in — run
 # shared/install-automation.sh once to enable it. build.sh itself only
 # deploys; it never installs background jobs or rewrites git config.
