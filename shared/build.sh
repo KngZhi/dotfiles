@@ -207,7 +207,7 @@ for target in "$CLAUDE_SKILLS" "$CODEX_SKILLS"; do
         echo "Retired managed link: $link"
     done
 done
-link_skill "$DOTFILES_DIR/shared/agent-instructions.md" "$DEPLOY_HOME/.claude/CLAUDE.md"
+link_skill "$DOTFILES_DIR/claude/CLAUDE.md" "$DEPLOY_HOME/.claude/CLAUDE.md"
 link_skill "$DOTFILES_DIR/shared/agent-instructions.md" "$DEPLOY_HOME/.codex/AGENTS.md"
 PUBLISHED=1
 echo "Deployed skills and instructions from $DOTFILES_DIR"

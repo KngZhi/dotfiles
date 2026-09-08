@@ -20,6 +20,7 @@ class BuildTests(unittest.TestCase):
         self.home = self.base / "runtime"
         self.write("shared/build.sh", BUILD.read_text())
         self.write("shared/agent-instructions.md", "shared instructions\n")
+        self.write("claude/CLAUDE.md", "@~/repo/dotfiles/shared/agent-instructions.md\n")
         self.write("shared/skill-packs/sources.txt", "https://example.invalid/author/pack\n")
         self.pack = self.repo / "shared/skill-packs/author-pack"
         (self.pack / ".git").mkdir(parents=True)
@@ -72,6 +73,20 @@ class BuildTests(unittest.TestCase):
         self.assertFalse(self.runtime_skill(".claude", "codex-only").exists())
         self.assertTrue(self.runtime_skill(".codex", "codex-only").exists())
         self.assertEqual((self.home / ".codex/AGENTS.md").read_text(), "shared instructions\n")
+
+    def test_claude_instructions_migrate_and_remain_independent(self):
+        claude = self.home / ".claude/CLAUDE.md"
+        claude.parent.mkdir(parents=True)
+        shared = self.repo / "shared/agent-instructions.md"
+        claude.symlink_to(shared)
+        self.run_build()
+        self.assertEqual(claude.resolve(), (self.repo / "claude/CLAUDE.md").resolve())
+        custom = "@~/repo/dotfiles/shared/agent-instructions.md\nClaude-only rule\n"
+        claude.write_text(custom)
+        self.run_build()
+        self.assertEqual(claude.read_text(), custom)
+        self.assertEqual((self.home / ".codex/AGENTS.md").resolve(), shared.resolve())
+        self.assertEqual(shared.read_text(), "shared instructions\n")
 
     def test_rebuild_retires_managed_links_and_stale_resources_only(self):
         self.skill("shared/skill-overrides/example", "overlay")
