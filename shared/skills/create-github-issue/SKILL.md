@@ -55,17 +55,15 @@ heading:
   actionable work when no other type is implied.
 - `Spike`: a time-boxed investigation producing evidence or a decision.
 
-Write an outcome-focused title and a Markdown body with these headings:
+Write an outcome-focused title. Lead the body with the current problem and
+desired change; retain the schema headings, but order them for understanding:
 
 ```markdown
-## Type
-<Epic | Work | Spike>
+## Context
+<what happens now, what goes wrong, and its impact>
 
 ## Outcome
-<observable result>
-
-## Context
-<why this matters and current behavior>
+<what should happen in the same situation; a before/after example if useful>
 
 ## Scope
 <what changes; exclusions only when needed to prevent scope drift>
@@ -74,13 +72,26 @@ Write an outcome-focused title and a Markdown body with these headings:
 - [ ] <concrete scenario and observable expected result>
 
 ## References
-<related issues, PRs, files, conversations, or None>
+<brief Agent investigation pointers, or None>
+
+## Type
+<Epic | Work | Spike>
 ```
 
-Keep ordinary Issues short enough to understand in one read. Lead with what
-will change and why it matters. Use a sentence or short paragraph per section
-and only the acceptance criteria needed to decide completion. Avoid repeating
-the same requirement across Outcome, Scope, and Acceptance criteria.
+The human-facing body must make two things immediately clear: what is wrong
+now, and what should change. Use the same concrete scenario for both sides of
+the comparison. Keep it short and avoid repeating requirements across sections.
+A reader should understand success without knowing the implementation.
+
+Put optional Agent investigation context under References: reproduction inputs,
+evidence, relevant entrypoints, and necessary business constraints. Keep this
+part concise too. Distinguish observed behavior from causal hypotheses and
+implementation suggestions. Ask the implementing Agent to verify hypotheses;
+allow a better explanation or solution when supported by evidence. Do not turn
+prior exploration into a mandatory formula, field design, file list, or test
+implementation. Acceptance criteria constrain outcomes; established business
+rules constrain boundaries. Preserve explicitly authorized technical constraints
+and identify them as such.
 
 Acceptance criteria describe observable behavior. Give a concrete input or
 user action and its expected result when that makes the requirement clearer.
