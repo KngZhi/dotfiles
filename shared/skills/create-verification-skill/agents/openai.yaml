@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create Verification Skill"
+  short_description: "Build and prove project-local verification workflows"
+  default_prompt: "Use $create-verification-skill to build a reusable verification skill for this project and prove it on a real user path."
