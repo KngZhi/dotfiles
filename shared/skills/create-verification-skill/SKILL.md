@@ -69,10 +69,22 @@ boundary and label what remains unverified. For dry-run/test modes, inspect what
 they skip and observe relevant file, network, and state effects rather than
 assuming the mode is side-effect free.
 
-Add helper scripts only when they make the procedure reliably repeatable.
-Document their invocations, dependencies, and ownership of temporary resources;
-make directly invoked scripts executable. Keep host-specific tool names in the
-project skill only when that project's workflow actually depends on them.
+Package new verification helpers with the skill: put scripts in
+`verify-<app>/scripts/` and their tests in `verify-<app>/tests/`, alongside
+`SKILL.md` and the feature map. Create these directories only when needed.
+Do not place skill-specific helpers in the application's source or scripts
+directory. Reuse existing application commands and harnesses in place; keep
+business logic and application regression tests with the application.
+
+Give repeated operations short, composable commands. A repository-local
+`bin/<name>` may provide a thin entrypoint that forwards to the skill's scripts
+and selects the same checkout's runtime. Keep verification logic inside the
+skill, and preserve caller-relative paths and per-worktree isolation.
+
+Document helper invocations, dependencies, and temporary-resource ownership;
+make directly invoked scripts executable. Wire helper tests and lint into the
+repository's checks so moving them under a skill does not hide them from CI.
+Keep host-specific tool names only when the workflow actually depends on them.
 
 ## Map the features
 
