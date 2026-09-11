@@ -68,14 +68,45 @@ Write an outcome-focused title and a Markdown body with these headings:
 <why this matters and current behavior>
 
 ## Scope
-<in scope and out of scope>
+<what changes; exclusions only when needed to prevent scope drift>
 
 ## Acceptance criteria
-- [ ] <independently checkable result>
+- [ ] <concrete scenario and observable expected result>
 
 ## References
 <related issues, PRs, files, conversations, or None>
 ```
+
+Keep ordinary Issues short enough to understand in one read. Lead with what
+will change and why it matters. Use a sentence or short paragraph per section
+and only the acceptance criteria needed to decide completion. Avoid repeating
+the same requirement across Outcome, Scope, and Acceptance criteria.
+
+Acceptance criteria describe observable behavior. Give a concrete input or
+user action and its expected result when that makes the requirement clearer.
+For example: “With the editor focused, pressing the save shortcut saves the
+current document and clears its unsaved indicator.” “Add an E2E test” or “CI
+passes” alone does not describe the required behavior. A real E2E assertion can
+supply evidence for it; screenshots or videos are not mandatory for every task.
+
+Inspect the repository's verification skill when available and link it under
+References. Reuse its project operations rather than copying its setup, long
+commands, or reporting procedure into each Issue. Do not require a new script,
+application, or per-Issue verification wrapper by default. Include implementation
+details only when they are necessary constraints, not speculative task lists.
+
+Keep expected results distinct from observations. At creation, label examples
+as expected unless they were actually run; do not invent successful output or
+mark acceptance complete. When specifying a tool, say what each operation does
+and what observable result shows it worked. For example, an input check reports
+validation status and data date; a prediction run produces a readable snapshot.
+Neither alone establishes that a particular business bug is fixed.
+
+When the Issue needs an explicit evidence requirement, keep it to one criterion:
+show a representative action or short command, its actual result, and how that
+result meets the acceptance criteria. The eventual completion report should
+state what changed, before/after results, evidence, and unverified paths. Keep
+full logs in linked evidence; do not expand the Issue into a verification manual.
 
 Preserve material uncertainty instead of inventing requirements. Ask before
 creation only when uncertainty changes the repository, outcome, or scope.
