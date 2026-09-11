@@ -55,21 +55,29 @@ heading:
   actionable work when no other type is implied.
 - `Spike`: a time-boxed investigation producing evidence or a decision.
 
-Write an outcome-focused title. Lead the body with the current problem and
-desired change; retain the schema headings, but order them for understanding:
+Write an outcome-focused title. For a behavior change, open with a concrete
+before/after example: the situation, what happens now, why that is a problem,
+and what should happen after the change. The reader should understand the
+difference before encountering formulas, metrics, or implementation terms.
+
+Keep the example in the adjacent Context and Outcome sections, using the same
+inputs and user action on both sides. Include dates, quantities, units, or a
+visible output when they make the difference clear. State what the reader would
+actually see or experience; a table of unexplained numbers does not do that by
+itself. Retain the schema headings:
 
 ```markdown
 ## Context
-<what happens now, what goes wrong, and its impact>
+<concrete example: situation or input → current behavior → practical problem>
 
 ## Outcome
-<what should happen in the same situation; a before/after example if useful>
+<the same example after the change: what happens instead and how that helps>
 
 ## Scope
 <what changes; exclusions only when needed to prevent scope drift>
 
 ## Acceptance criteria
-- [ ] <concrete scenario and observable expected result>
+- [ ] <the opening example's input or action produces the expected result>
 
 ## References
 <brief Agent investigation pointers, or None>
@@ -78,10 +86,19 @@ desired change; retain the schema headings, but order them for understanding:
 <Epic | Work | Spike>
 ```
 
-The human-facing body must make two things immediately clear: what is wrong
-now, and what should change. Use the same concrete scenario for both sides of
-the comparison. Keep it short and avoid repeating requirements across sections.
-A reader should understand success without knowing the implementation.
+For example, "make inventory coverage ETA-aware" needs a concrete explanation:
+"Illustrative scenario: at the September review, next January will be short by
+100 units. An existing shipment of 2,000 units arrives the following September;
+a new order could arrive in January. Now: the planner counts the late shipment
+and recommends no replenishment, leaving January short. Expected after the fix:
+it recommends timely replenishment for January and retains the September
+commitment." This explains the intended difference without prescribing a
+formula or claiming measured results.
+
+For an Epic, use a representative scenario to explain the larger outcome. For a
+Spike, show the concrete uncertainty and the evidence or decision it should
+produce; do not invent a settled fix. Keep the body short, with each section
+adding information rather than restating the example.
 
 Put optional Agent investigation context under References: reproduction inputs,
 evidence, relevant entrypoints, and necessary business constraints. Keep this
@@ -93,12 +110,12 @@ implementation. Acceptance criteria constrain outcomes; established business
 rules constrain boundaries. Preserve explicitly authorized technical constraints
 and identify them as such.
 
-Acceptance criteria describe observable behavior. Give a concrete input or
-user action and its expected result when that makes the requirement clearer.
-For example: “With the editor focused, pressing the save shortcut saves the
-current document and clears its unsaved indicator.” “Add an E2E test” or “CI
-passes” alone does not describe the required behavior. A real E2E assertion can
-supply evidence for it; screenshots or videos are not mandatory for every task.
+Acceptance criteria make the opening example checkable, then cover any other
+material outcomes or boundaries. Keep its inputs and comparison consistent.
+State the observable result in ordinary language before any necessary metric.
+“Add an E2E test” or “CI passes” alone does not describe the required behavior.
+A real E2E assertion can supply evidence for it; screenshots or videos are not
+mandatory for every task.
 
 Inspect the repository's verification skill when available and link it under
 References. Reuse its project operations rather than copying its setup, long
@@ -106,9 +123,12 @@ commands, or reporting procedure into each Issue. Do not require a new script,
 application, or per-Issue verification wrapper by default. Include implementation
 details only when they are necessary constraints, not speculative task lists.
 
-Keep expected results distinct from observations. At creation, label examples
-as expected unless they were actually run; do not invent successful output or
-mark acceptance complete. When specifying a tool, say what each operation does
+Prefer an observed example from the user's report or inspected evidence. When
+none is available, label a simplified example as illustrative and its desired
+result as expected. Give exact outputs only when supported by evidence or clear
+assumptions; leave genuinely unknown results open. Do not present historical
+results as current observations, invent successful output, or mark acceptance
+complete. When specifying a tool, say what each operation does
 and what observable result shows it worked. For example, an input check reports
 validation status and data date; a prediction run produces a readable snapshot.
 Neither alone establishes that a particular business bug is fixed.
