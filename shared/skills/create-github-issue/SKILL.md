@@ -55,26 +55,32 @@ heading:
   actionable work when no other type is implied.
 - `Spike`: a time-boxed investigation producing evidence or a decision.
 
-Write an outcome-focused title. For a behavior change, open with a concrete
-before/after example: the situation, what happens now, why that is a problem,
-and what should happen after the change. The reader should understand the
-difference before encountering formulas, metrics, or implementation terms.
+Write an outcome-focused title. For a behavior change, start with a concrete
+object the reader recognizes: a particular SKU, Pool, order, document, or user
+action. Walk that same object through the current problem, the intended change,
+and the expected result, then explain the broader business benefit. The reader
+should understand this before encountering formulas or implementation terms.
 
-Keep the example in the adjacent Context and Outcome sections, using the same
-inputs and user action on both sides. Include dates, quantities, units, or a
-visible output when they make the difference clear. State what the reader would
-actually see or experience; a table of unexplained numbers does not do that by
-itself. Retain the schema headings:
+Keep this explanation in the adjacent Context and Outcome sections. Use the same
+inputs on both sides, with names, quantities, dates, units, or visible outputs
+that make the difference clear. Describe the change in plain language at the
+level needed to connect the problem to the result. Retain the schema headings:
 
 ```markdown
 ## Context
-<concrete example: situation or input → current behavior → practical problem>
+<example: a named object and the relevant situation or input>
+
+Before: <what happens to this object now and the practical problem it causes>
 
 ## Outcome
-<the same example after the change: what happens instead and how that helps>
+Change: <what we will change to address this problem, in plain language>
+
+After: <what happens to the same object with the same inputs after the change>
+
+Benefit: <how this improves the wider workflow or business decision>
 
 ## Scope
-<what changes; exclusions only when needed to prevent scope drift>
+<boundaries of this work; exclusions only when needed to prevent scope drift>
 
 ## Acceptance criteria
 - [ ] <the opening example's input or action produces the expected result>
@@ -86,14 +92,22 @@ itself. Retain the schema headings:
 <Epic | Work | Spike>
 ```
 
-For example, "make inventory coverage ETA-aware" needs a concrete explanation:
-"Illustrative scenario: at the September review, next January will be short by
-100 units. An existing shipment of 2,000 units arrives the following September;
-a new order could arrive in January. Now: the planner counts the late shipment
-and recommends no replenishment, leaving January short. Expected after the fix:
-it recommends timely replenishment for January and retains the September
-commitment." This explains the intended difference without prescribing a
-formula or claiming measured results.
+For example, an illustrative SKU A100 has 100 units still expected: 60 matched
+to replenishment commitments and 40 still unmatched. Its code changes to A100-NEW.
+
+- Before: 60 units appear under A100-NEW and 40 under A100, so viewing the new
+  code shows only part of the product's incoming supply.
+- Change: identify both portions by the stable product ID and display the
+  current product code.
+- After: all 100 units appear under A100-NEW; quantities, allocation status,
+  and arrival dates stay the same, and original order details remain traceable.
+- Benefit: people can assess the product's full supply when checking orders or
+  planning replenishment, without manually piecing together old and new codes.
+
+State the causal benefit that follows from the example. Avoid vague claims such
+as "improves accuracy" and unsupported savings or performance numbers. For a
+sub-Issue, explain its contribution to the parent outcome without claiming that
+this part delivers the whole parent's result.
 
 For an Epic, use a representative scenario to explain the larger outcome. For a
 Spike, show the concrete uncertainty and the evidence or decision it should
