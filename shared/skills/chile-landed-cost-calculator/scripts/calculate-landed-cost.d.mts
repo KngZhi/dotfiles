@@ -83,7 +83,7 @@ export interface LandedCostResult {
 export const DEFAULT_UNLOADING_FEE_CLP: number;
 export const DEFAULT_CLEARANCE_MISC_FEE_CLP: number;
 export const DEFAULT_SELF_PAID_INLAND_FEE_CNY: number;
-export const DEFAULT_CNY_CLP: number;
+export const EXCHANGE_FEE_CLP_PER_USD: number;
 export const USD_RATES_URL: string;
 
 export function fetchUsdClp(fetchImpl?: typeof fetch): Promise<number>;
@@ -91,6 +91,7 @@ export function normalizeInlandPayer(value: unknown): 'factory' | 'self' | undef
 export function resolveCostConfig(
   raw: RawCostConfig,
   rateFetch?: () => Promise<number>,
+  usdCnyFetch?: () => Promise<number>,
 ): Promise<ResolvedCostConfig>;
 export function calculateLandedCosts(input: {
   rows: LandedCostRowInput[];

@@ -1,7 +1,10 @@
+import { fetchBocUsdCny } from '../../chile-landed-cost-calculator/scripts/boc-exchange-rate.mjs';
+export { fetchBocUsdCny };
+
 export const DEFAULT_UNLOADING_FEE_CLP = 125_000;
 export const DEFAULT_PRE_ARRIVAL_CLEARANCE_MISC_FEE_CLP = 1_500_000;
 export const DEFAULT_SELF_PAID_INLAND_FEE_CNY = 5_500;
-export const DEFAULT_CNY_CLP = 135;
+export const EXCHANGE_FEE_CLP_PER_USD = 12;
 export const USD_RATES_URL = 'https://open.er-api.com/v6/latest/USD';
 
 export type InlandPayer = 'factory' | 'self';
@@ -100,8 +103,6 @@ export async function resolveContainerConfig(
   }
   const 内陆费 = explicitInland ?? (payer === 'factory' ? 0 : DEFAULT_SELF_PAID_INLAND_FEE_CNY);
   const 卸柜费 = optionalNumber(raw, '卸柜费') ?? DEFAULT_UNLOADING_FEE_CLP;
-  const cnyClp = optionalNumber(raw, 'CNY-CLP') ?? DEFAULT_CNY_CLP;
-  if (cnyClp <= 0) throw new Error('config 参数「CNY-CLP」必须大于 0');
 
   const explicitUsdClp = optionalNumber(raw, 'USD-CLP');
   const usdClp = explicitUsdClp ?? await rateFetch();
@@ -110,6 +111,10 @@ export async function resolveContainerConfig(
   const explicitUsdCny = optionalNumber(raw, 'USD-CNY');
   const usdCny = explicitUsdCny ?? await usdCnyFetch();
   if (usdCny <= 0) throw new Error('config 参数「USD-CNY」必须大于 0');
+
+  const cnyClp = optionalNumber(raw, 'CNY-CLP')
+    ?? (usdClp + EXCHANGE_FEE_CLP_PER_USD) / usdCny;
+  if (cnyClp <= 0) throw new Error('config 参数「CNY-CLP」必须大于 0');
 
   return {
     海运费,
@@ -124,5 +129,3 @@ export async function resolveContainerConfig(
     ...(payer ? { 内陆费承担方: payer } : {}),
   };
 }
-import { fetchBocUsdCny } from '../../chile-landed-cost-calculator/scripts/boc-exchange-rate.mjs';
-export { fetchBocUsdCny };

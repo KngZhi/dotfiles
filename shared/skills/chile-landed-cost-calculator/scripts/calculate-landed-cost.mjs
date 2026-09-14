@@ -5,7 +5,7 @@ import { fetchBocUsdCny, BOC_RATES_URL, BOC_USD_QUOTE_COLUMN } from './boc-excha
 export const DEFAULT_UNLOADING_FEE_CLP = 125_000;
 export const DEFAULT_CLEARANCE_MISC_FEE_CLP = 1_500_000;
 export const DEFAULT_SELF_PAID_INLAND_FEE_CNY = 5_500;
-export const DEFAULT_CNY_CLP = 135;
+export const EXCHANGE_FEE_CLP_PER_USD = 12;
 export const USD_RATES_URL = 'https://open.er-api.com/v6/latest/USD';
 
 function hasValue(value) {
@@ -63,11 +63,12 @@ export async function resolveCostConfig(raw, rateFetch = fetchUsdClp, usdCnyFetc
   const clearanceMiscFeeClp = numberValue(raw.clearanceMiscFeeClp, 'clearanceMiscFeeClp')
     ?? DEFAULT_CLEARANCE_MISC_FEE_CLP;
   const hasExplicitCnyClp = hasValue(raw.cnyClp);
-  const cnyClp = numberValue(raw.cnyClp, 'cnyClp', { positive: true }) ?? DEFAULT_CNY_CLP;
   const hasExplicitUsdClp = hasValue(raw.usdClp);
   const usdClp = numberValue(raw.usdClp, 'usdClp', { positive: true }) ?? await rateFetch();
   const hasExplicitUsdCny = hasValue(raw.usdCny);
   const usdCny = numberValue(raw.usdCny, 'usdCny', { positive: true }) ?? await usdCnyFetch();
+  const cnyClp = numberValue(raw.cnyClp, 'cnyClp', { positive: true })
+    ?? (usdClp + EXCHANGE_FEE_CLP_PER_USD) / usdCny;
   const ivaClp = numberValue(raw.ivaClp, 'ivaClp') ?? 0;
 
   return {
@@ -95,7 +96,7 @@ export async function resolveCostConfig(raw, rateFetch = fetchUsdClp, usdCnyFetc
         : { kind: 'fetched', detail: USD_RATES_URL },
       cnyClp: hasExplicitCnyClp
         ? { kind: 'explicit' }
-        : { kind: 'default', detail: String(DEFAULT_CNY_CLP) },
+        : { kind: 'derived', detail: `(usdClp + ${EXCHANGE_FEE_CLP_PER_USD}) / usdCny` },
       usdCny: hasExplicitUsdCny
         ? { kind: 'explicit' }
         : { kind: 'fetched', detail: `${BOC_RATES_URL} ${BOC_USD_QUOTE_COLUMN}/100` },

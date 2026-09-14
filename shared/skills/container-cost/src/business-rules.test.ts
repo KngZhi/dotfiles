@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  DEFAULT_CNY_CLP,
   DEFAULT_PRE_ARRIVAL_CLEARANCE_MISC_FEE_CLP,
   DEFAULT_SELF_PAID_INLAND_FEE_CNY,
   DEFAULT_UNLOADING_FEE_CLP,
@@ -23,7 +22,7 @@ test('uses business defaults and independently fetches BOC USD-CNY', async () =>
   assert.equal(config.内陆费, 0);
   assert.equal(config.清关杂费, DEFAULT_PRE_ARRIVAL_CLEARANCE_MISC_FEE_CLP);
   assert.equal(config.卸柜费, DEFAULT_UNLOADING_FEE_CLP);
-  assert.equal(config['CNY-CLP'], DEFAULT_CNY_CLP);
+  assert.equal(config['CNY-CLP'], 957 / 6.7255);
   assert.equal(config['USD-CLP'], 945);
   assert.equal(config['USD-CNY'], 6.7255);
   assert.equal(config.IVA, 0);
@@ -108,4 +107,12 @@ test('still requires real sea freight and container number', async () => {
     () => resolveContainerConfig({ 内陆费: 0, 海运费: 1 }, async () => 900),
     /货柜号/,
   );
+});
+
+test('includes the 12 CLP per USD fee in the user exchange example', async () => {
+  const config = await resolveContainerConfig({
+    ...required, 内陆费: 0, 'USD-CLP': 930, 'USD-CNY': 6.7,
+  });
+  assert.equal(config['CNY-CLP'], 942 / 6.7);
+  assert.equal(config['USD-CLP'], 930);
 });

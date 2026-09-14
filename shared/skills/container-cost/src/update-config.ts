@@ -1,6 +1,6 @@
 import * as XLSX from './xlsx.js';
 import {
-  DEFAULT_CNY_CLP,
+  EXCHANGE_FEE_CLP_PER_USD,
   DEFAULT_PRE_ARRIVAL_CLEARANCE_MISC_FEE_CLP,
   DEFAULT_SELF_PAID_INLAND_FEE_CNY,
   DEFAULT_UNLOADING_FEE_CLP,
@@ -52,7 +52,6 @@ export async function prepareConfigValues(
     || String(result['清关杂费']).trim() === '') {
     result['清关杂费'] = DEFAULT_PRE_ARRIVAL_CLEARANCE_MISC_FEE_CLP;
   }
-  result['CNY-CLP'] ??= DEFAULT_CNY_CLP;
   result.IVA ??= 0;
 
   if (result['内陆费'] === undefined || result['内陆费'] === '') {
@@ -66,6 +65,11 @@ export async function prepareConfigValues(
   }
   if (result['USD-CNY'] === undefined || result['USD-CNY'] === null || result['USD-CNY'] === '') {
     result['USD-CNY'] = await usdCnyFetch();
+  }
+  if (result['CNY-CLP'] === undefined || result['CNY-CLP'] === null
+    || String(result['CNY-CLP']).trim() === '') {
+    result['CNY-CLP'] = (Number(result['USD-CLP']) + EXCHANGE_FEE_CLP_PER_USD)
+      / Number(result['USD-CNY']);
   }
   return result;
 }

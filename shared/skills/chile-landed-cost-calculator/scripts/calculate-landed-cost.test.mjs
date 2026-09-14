@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   DEFAULT_CLEARANCE_MISC_FEE_CLP,
-  DEFAULT_CNY_CLP,
   DEFAULT_UNLOADING_FEE_CLP,
   USD_RATES_URL,
   calculateLandedCosts,
@@ -22,7 +21,7 @@ test('resolves shared defaults while keeping sea freight explicit', async () => 
     unloadingFeeClp: DEFAULT_UNLOADING_FEE_CLP,
     clearanceMiscFeeClp: DEFAULT_CLEARANCE_MISC_FEE_CLP,
     usdClp: 945,
-    cnyClp: DEFAULT_CNY_CLP,
+    cnyClp: 957 / 7,
     usdCny: 7,
     ivaClp: 0,
     provenance: {
@@ -31,7 +30,7 @@ test('resolves shared defaults while keeping sea freight explicit', async () => 
       unloadingFeeClp: { kind: 'default', detail: '125000' },
       clearanceMiscFeeClp: { kind: 'default', detail: '1500000' },
       usdClp: { kind: 'fetched', detail: USD_RATES_URL },
-      cnyClp: { kind: 'default', detail: '135' },
+      cnyClp: { kind: 'derived', detail: '(usdClp + 12) / usdCny' },
       usdCny: { kind: 'fetched', detail: 'https://www.boc.cn/sourcedb/whpj/ 现汇卖出价/100' },
       ivaClp: { kind: 'estimated', detail: 'zero triggers estimate' },
     },
@@ -87,8 +86,8 @@ test('reuses the container IVA estimate and default cost scenario', async () => 
 
   assert.equal(result.totals.ivaWasEstimated, true);
   assert.equal(result.totals.ivaTotalClp, 58995);
-  assert.equal(result.rows[0].unroundedLandedCostClp, 2718.995);
-  assert.equal(result.rows[0].landedCostClp, 2719);
+  assert.equal(result.rows[0].unroundedLandedCostClp, 2720.795);
+  assert.equal(result.rows[0].landedCostClp, 2721);
 });
 
 test('rejects missing inputs instead of producing plausible zero costs', async () => {
@@ -128,4 +127,14 @@ test('rejects missing inputs instead of producing plausible zero costs', async (
     }),
     /unitPriceCny/,
   );
+});
+
+test('derives CNY-CLP with the fee while preserving explicit actual rates', async () => {
+  const raw = { seaFreightUsd: 1000, inlandFreightCny: 0, usdClp: 930, usdCny: 6.7 };
+  const derived = await resolveCostConfig(raw);
+  assert.equal(derived.cnyClp, 942 / 6.7);
+  assert.equal(derived.usdClp, 930);
+  const actual = await resolveCostConfig({ ...raw, cnyClp: 135 });
+  assert.equal(actual.cnyClp, 135);
+  assert.deepEqual(actual.provenance.cnyClp, { kind: 'explicit' });
 });
