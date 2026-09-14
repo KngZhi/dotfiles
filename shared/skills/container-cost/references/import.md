@@ -10,8 +10,8 @@ k2046 purchase import-container <成本Excel> --parse-only
 k2046 purchase import-container <成本Excel> --container-no <柜号> --shipment-date <实际到柜日期>
 ```
 
-`--parse-only` 用于解析预览。`--dry-run` 在已有流程中表示导入但不提交，
-不能把它当作无写入检查；以当前 CLI 的实际语义为准。
+`--parse-only` 和当前 CLI 的 `--dry-run` 都只上传临时文件并解析行，不创建采购单或调用 import-parse/import-commit；不会模拟按供应商拆单。以当前 CLI 帮助及实现为准。
+标准成本表若为18列（含「散件数」），不能直接套用 CLI 默认17列映射，否则仓库和分类会错位；先核对每一列并显式指定映射，再检查解析结果。
 ETA 不得作为未经确认的实际到柜日期。
 
 保留导入返回的采购单 ID，核实创建与提交状态。发生部分失败时先检查已有
