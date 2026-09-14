@@ -3,9 +3,11 @@
 导入会创建采购单，正常导入可能同时提交。先确认导入本身在用户请求范围内，
 并核对准确的文件、柜号、仓库、供应商、分类、出柜时间和 ETA。
 
-采购单的「发票时间」`invoiceDateTime` 填用户业务口径的出柜时间；
-`shipmentDate` 保留预计到港 ETA。出货表日期、文件名日期、实际装船日不一致时，
-先确认哪一天是该柜的出柜时间，不能自行替代。ETA 不表示实际到仓或已入库。
+K2046 前端没有独立的「发柜时间」字段，因此借用「发票时间」
+`invoiceDateTime` 保存这柜实际发出的时间。在本业务中，这个字段代表发柜时间，
+不代表发票开具时间；也不能填建单日期、导入日期或 ETA。
+`shipmentDate` 保留预计到港 ETA。按原始发柜记录确定实际发出日期；只有原始记录
+无法确定或互相冲突时才向用户核实。ETA 不表示实际到仓或已入库。
 
 采购单备注默认留空。不要把重复的柜号、数量、单位、ETA 解释、费用计算规则
 或核对过程写进备注；这些记录放成本表或归档报告。用户明确提供的业务备注才写入。
@@ -15,7 +17,12 @@
 ```bash
 k2046 purchase import-container <成本Excel> --parse-only
 k2046 purchase import-container <成本Excel> --container-no <柜号> --shipment-date <ETA>
+k2046 purchase update-invoice-time <采购单ID> --invoice-date-time "<实际发柜日期> 00:00:00"
 ```
+
+发柜记录只有日期时以当天 `00:00:00` 保存；有明确时分秒时保留原值。
+参数使用 K2046 服务端本地时间，不做时区换算。对应 MCP 工具为
+`update_purchase_order_invoice_time`，传入 `orderId` 和 `invoiceDateTime`。
 
 `--parse-only` 和当前 CLI 的 `--dry-run` 都只上传临时文件并解析行，不创建采购单或调用 import-parse/import-commit；不会模拟按供应商拆单。以当前 CLI 帮助及实现为准。
 标准成本表若为18列（含「散件数」），不能直接套用 CLI 默认17列映射，否则仓库和分类会错位；先核对每一列并显式指定映射，再检查解析结果。
