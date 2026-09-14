@@ -5,6 +5,7 @@ import {
   DEFAULT_SELF_PAID_INLAND_FEE_CNY,
   DEFAULT_UNLOADING_FEE_CLP,
   fetchUsdClp,
+  fetchBocUsdCny,
   normalizeInlandPayer,
 } from './business-rules.js';
 import { readRawConfig } from './calculate.js';
@@ -43,6 +44,7 @@ export async function prepareConfigValues(
   current: Record<string, unknown>,
   explicit: Record<string, unknown> = {},
   rateFetch: () => Promise<number> = fetchUsdClp,
+  usdCnyFetch: () => Promise<number> = fetchBocUsdCny,
 ): Promise<Record<string, unknown>> {
   const result = { ...current, ...explicit };
   result['卸柜费'] ??= DEFAULT_UNLOADING_FEE_CLP;
@@ -62,8 +64,8 @@ export async function prepareConfigValues(
   if (result['USD-CLP'] === undefined || result['USD-CLP'] === '') {
     result['USD-CLP'] = await rateFetch();
   }
-  if (result['USD-CNY'] === undefined || result['USD-CNY'] === '') {
-    result['USD-CNY'] = Number(result['USD-CLP']) / Number(result['CNY-CLP']);
+  if (result['USD-CNY'] === undefined || result['USD-CNY'] === null || result['USD-CNY'] === '') {
+    result['USD-CNY'] = await usdCnyFetch();
   }
   return result;
 }

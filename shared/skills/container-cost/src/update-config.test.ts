@@ -8,8 +8,10 @@ test('prepare supplies the pre-arrival clearance misc fee default', async () => 
     { 内陆费承担方: '厂家' },
     {},
     async () => 945,
+    async () => 6.7255,
   );
   assert.equal(prepared['清关杂费'], DEFAULT_PRE_ARRIVAL_CLEARANCE_MISC_FEE_CLP);
+  assert.equal(prepared['USD-CNY'], 6.7255);
 });
 
 test('prepare preserves explicit clearance misc fee including zero', async () => {
@@ -17,6 +19,7 @@ test('prepare preserves explicit clearance misc fee including zero', async () =>
     { 内陆费: 0, 清关杂费: 800_000 },
     {},
     async () => 945,
+    async () => 7,
   );
   assert.equal(actual['清关杂费'], 800_000);
 
@@ -24,6 +27,7 @@ test('prepare preserves explicit clearance misc fee including zero', async () =>
     { 内陆费: 0 },
     { 清关杂费: 0 },
     async () => 945,
+    async () => 7,
   );
   assert.equal(zero['清关杂费'], 0);
 });

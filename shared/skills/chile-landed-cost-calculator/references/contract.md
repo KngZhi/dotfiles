@@ -1,6 +1,6 @@
 # Calculator Input and Result Contract
 
-Resolve config with `resolveCostConfig(rawConfig, optionalRateFetch)`, then call
+Resolve config with `resolveCostConfig(rawConfig, optionalUsdClpFetch, optionalUsdCnyFetch)`, then call
 `calculateLandedCosts({ rows, config })` from `scripts/calculate-landed-cost.mjs`.
 
 ## Product-Row Parameters
@@ -27,10 +27,13 @@ Callers must normalize pairs/dozens and repair or allocate missing CBM before th
 | `clearanceMiscFeeClp` | no | Pre-arrival estimate CLP 1,500,000 |
 | `usdClp` | no | Fetch live from `open.er-api.com` when absent; failure is fatal |
 | `cnyClp` | no | 135 |
-| `usdCny` | no | `usdClp / cnyClp` |
+| `usdCny` | no | Bank of China USD spot selling quote divided by 100; failure is fatal |
 | `ivaClp` | no | 0 means estimate using the shared IVA formula |
 
 At least one of `inlandFreightCny` or `inlandPayer` is required. Explicit zero values override defaults.
+USD-CNY comes from https://www.boc.cn/sourcedb/whpj/ (`现汇卖出价`, CNY per 100 USD).
+An explicit settlement or historical rate takes precedence. Do not infer this rate from CLP cross rates.
+Keep the fetched quote and Beijing publication time in the caller's source record.
 
 ## Calculation
 

@@ -14,17 +14,18 @@ const required = {
   货柜号: 'TEMU8362779',
 };
 
-test('uses business defaults and derives USD-CNY from the same cross rates', async () => {
+test('uses business defaults and independently fetches BOC USD-CNY', async () => {
   const config = await resolveContainerConfig(
     { ...required, 内陆费承担方: '厂家' },
     async () => 945,
+    async () => 6.7255,
   );
   assert.equal(config.内陆费, 0);
   assert.equal(config.清关杂费, DEFAULT_PRE_ARRIVAL_CLEARANCE_MISC_FEE_CLP);
   assert.equal(config.卸柜费, DEFAULT_UNLOADING_FEE_CLP);
   assert.equal(config['CNY-CLP'], DEFAULT_CNY_CLP);
   assert.equal(config['USD-CLP'], 945);
-  assert.equal(config['USD-CNY'], 7);
+  assert.equal(config['USD-CNY'], 6.7255);
   assert.equal(config.IVA, 0);
 });
 
@@ -32,6 +33,7 @@ test('defaults self-paid inland freight to CNY 5500', async () => {
   const config = await resolveContainerConfig(
     { ...required, 内陆费承担方: '我方' },
     async () => 945,
+    async () => 7,
   );
   assert.equal(config.内陆费, DEFAULT_SELF_PAID_INLAND_FEE_CNY);
 });
@@ -84,8 +86,17 @@ test('explicit zero clearance misc fee overrides the pre-arrival default', async
   const config = await resolveContainerConfig(
     { ...required, 内陆费: 0, 清关杂费: 0 },
     async () => 900,
+    async () => 7,
   );
   assert.equal(config.清关杂费, 0);
+});
+
+test('BOC failure does not fall back to cross rates', async () => {
+  await assert.rejects(() => resolveContainerConfig(
+    { ...required, 内陆费: 0, 'USD-CLP': 945 },
+    async () => 945,
+    async () => { throw new Error('BOC unavailable'); },
+  ), /BOC unavailable/);
 });
 
 test('still requires real sea freight and container number', async () => {

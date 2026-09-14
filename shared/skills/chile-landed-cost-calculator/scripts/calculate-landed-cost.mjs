@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
+import { fetchBocUsdCny, BOC_RATES_URL, BOC_USD_QUOTE_COLUMN } from './boc-exchange-rate.mjs';
 
 export const DEFAULT_UNLOADING_FEE_CLP = 125_000;
 export const DEFAULT_CLEARANCE_MISC_FEE_CLP = 1_500_000;
@@ -45,7 +46,7 @@ export async function fetchUsdClp(fetchImpl = fetch) {
   return numberValue(payload.rates?.CLP, 'USD-CLP', { required: true, positive: true });
 }
 
-export async function resolveCostConfig(raw, rateFetch = fetchUsdClp) {
+export async function resolveCostConfig(raw, rateFetch = fetchUsdClp, usdCnyFetch = fetchBocUsdCny) {
   const seaFreightUsd = numberValue(raw.seaFreightUsd, 'seaFreightUsd', { required: true });
   const hasExplicitInland = hasValue(raw.inlandFreightCny);
   const explicitInland = numberValue(raw.inlandFreightCny, 'inlandFreightCny');
@@ -66,7 +67,7 @@ export async function resolveCostConfig(raw, rateFetch = fetchUsdClp) {
   const hasExplicitUsdClp = hasValue(raw.usdClp);
   const usdClp = numberValue(raw.usdClp, 'usdClp', { positive: true }) ?? await rateFetch();
   const hasExplicitUsdCny = hasValue(raw.usdCny);
-  const usdCny = numberValue(raw.usdCny, 'usdCny', { positive: true }) ?? (usdClp / cnyClp);
+  const usdCny = numberValue(raw.usdCny, 'usdCny', { positive: true }) ?? await usdCnyFetch();
   const ivaClp = numberValue(raw.ivaClp, 'ivaClp') ?? 0;
 
   return {
@@ -97,7 +98,7 @@ export async function resolveCostConfig(raw, rateFetch = fetchUsdClp) {
         : { kind: 'default', detail: String(DEFAULT_CNY_CLP) },
       usdCny: hasExplicitUsdCny
         ? { kind: 'explicit' }
-        : { kind: 'derived', detail: 'usdClp/cnyClp' },
+        : { kind: 'fetched', detail: `${BOC_RATES_URL} ${BOC_USD_QUOTE_COLUMN}/100` },
       ivaClp: ivaClp === 0
         ? { kind: 'estimated', detail: 'zero triggers estimate' }
         : { kind: 'explicit' },

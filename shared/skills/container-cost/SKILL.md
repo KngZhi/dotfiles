@@ -20,6 +20,8 @@ description: 对已整理并核对完成的标准货柜表配置费用、计算�
 命令从本技能目录执行。工作簿流程实际使用 `src/calculate.ts` 和
 `src/business-rules.ts`；这里尚未接入独立的 chile-landed-cost-calculator。
 以当前执行路径为准，不把计划中的共享接入描述为已完成。
+人民币兑美元报价复用相邻 `chile-landed-cost-calculator/scripts/boc-exchange-rate.mjs`；
+这只共享中行汇率读取，不改变上述成本引擎边界。
 
 ## 共同约束
 

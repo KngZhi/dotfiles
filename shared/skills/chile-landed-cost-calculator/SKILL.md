@@ -34,6 +34,6 @@ Use actual inputs where available and label provisional scenarios. Preserve the
 returned breakdown and parameter provenance. Apply selling-price margins to the
 landed result, not directly to the supplier CNY price.
 
-For changes to this calculator, run `node --test scripts/calculate-landed-cost.test.mjs`.
+For changes to this calculator, run `node --test scripts/*.test.mjs`.
 For a calculation, inspect the result's units, shares, totals, and estimate status;
 rerunning the software test suite for every calculation is unnecessary.

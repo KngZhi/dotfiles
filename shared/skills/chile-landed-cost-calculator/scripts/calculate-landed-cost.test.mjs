@@ -13,6 +13,7 @@ test('resolves shared defaults while keeping sea freight explicit', async () => 
   const config = await resolveCostConfig(
     { seaFreightUsd: 1000, inlandPayer: 'factory' },
     async () => 945,
+    async () => 7,
   );
 
   assert.deepEqual(config, {
@@ -31,7 +32,7 @@ test('resolves shared defaults while keeping sea freight explicit', async () => 
       clearanceMiscFeeClp: { kind: 'default', detail: '1500000' },
       usdClp: { kind: 'fetched', detail: USD_RATES_URL },
       cnyClp: { kind: 'default', detail: '135' },
-      usdCny: { kind: 'derived', detail: 'usdClp/cnyClp' },
+      usdCny: { kind: 'fetched', detail: 'https://www.boc.cn/sourcedb/whpj/ 现汇卖出价/100' },
       ivaClp: { kind: 'estimated', detail: 'zero triggers estimate' },
     },
   });
@@ -75,6 +76,7 @@ test('reuses the container IVA estimate and default cost scenario', async () => 
   const config = await resolveCostConfig(
     { seaFreightUsd: 1000, inlandPayer: 'factory' },
     async () => 900,
+    async () => 900 / 135,
   );
   const result = calculateLandedCosts({
     rows: [

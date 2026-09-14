@@ -83,6 +83,7 @@ export async function fetchUsdClp(fetchImpl: typeof fetch = fetch): Promise<numb
 export async function resolveContainerConfig(
   raw: Record<string, unknown>,
   rateFetch: RateFetch = fetchUsdClp,
+  usdCnyFetch: RateFetch = fetchBocUsdCny,
 ): Promise<ContainerConfig> {
   const 海运费 = requiredNumber(raw, '海运费');
   const 清关杂费 = optionalNumber(raw, '清关杂费')
@@ -107,7 +108,7 @@ export async function resolveContainerConfig(
   if (usdClp <= 0) throw new Error('config 参数「USD-CLP」必须大于 0');
 
   const explicitUsdCny = optionalNumber(raw, 'USD-CNY');
-  const usdCny = explicitUsdCny ?? (usdClp / cnyClp);
+  const usdCny = explicitUsdCny ?? await usdCnyFetch();
   if (usdCny <= 0) throw new Error('config 参数「USD-CNY」必须大于 0');
 
   return {
@@ -123,3 +124,5 @@ export async function resolveContainerConfig(
     ...(payer ? { 内陆费承担方: payer } : {}),
   };
 }
+import { fetchBocUsdCny } from '../../chile-landed-cost-calculator/scripts/boc-exchange-rate.mjs';
+export { fetchBocUsdCny };

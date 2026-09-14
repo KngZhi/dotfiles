@@ -119,6 +119,7 @@ test('runs a completely local calculation and writes to the configured output di
       ['内陆费', 0],
       ['货柜号', 'TEST1234567'],
       ['USD-CLP', 900],
+      ['USD-CNY', 7],
     ]), 'config');
     XLSX.writeFile(workbook, input);
 
