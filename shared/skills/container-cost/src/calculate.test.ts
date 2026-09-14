@@ -6,6 +6,7 @@ import test from 'node:test';
 import * as XLSX from './xlsx.js';
 import {
   calculateContainerFile,
+  calculateCosts,
   loadDataSheet,
   normalizePricingUnits,
   OPTIONAL_CONFIG_PARAMS,
@@ -88,6 +89,20 @@ test('only sea freight and container number are required config parameters', () 
   assert.equal(OPTIONAL_CONFIG_PARAMS.includes('清关杂费'), true);
 });
 
+test('estimates IVA on goods plus sea freight together and preserves an explicit IVA', async () => {
+  const rows = [{ ...sockRow, 单价: 7, 装箱数: 100, 件数: 10, 总数量: 1000, 计价单位: '打' as const }];
+  const params = {
+    海运费: 2000, 内陆费: 0, 卸柜费: 0, 清关杂费: 0,
+    'USD-CLP': 900, 'USD-CNY': 7, 'CNY-CLP': 135, IVA: 0, 货柜号: 'TEST',
+  };
+  const query = async () => ({ products: new Map(), checkedProductNumbers: new Set(['SOCK1']), errors: [] });
+  const [estimated] = await calculateCosts(rows, params, query);
+  // USD 1000 goods + USD 2000 freight gives CLP 153900 estimated IVA.
+  assert.equal(estimated.成本价, 2899);
+  const [actual] = await calculateCosts(rows, { ...params, IVA: 100000 }, query);
+  assert.equal(actual.成本价, 2845);
+});
+
 test('runs a completely local calculation and writes to the configured output directory', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'container-calculate-'));
   const input = join(directory, '(2026-07-17)TEST1234567.xlsx');
@@ -125,7 +140,7 @@ test('runs a completely local calculation and writes to the configured output di
     assert.equal(resultRows.length, 2);
     assert.equal(resultRows[1][0], 'SKU1');
     assert.equal(typeof resultRows[1][5], 'number');
-    assert.equal(DEFAULT_PRE_ARRIVAL_CLEARANCE_MISC_FEE_CLP, 1_350_000);
+    assert.equal(DEFAULT_PRE_ARRIVAL_CLEARANCE_MISC_FEE_CLP, 1_500_000);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

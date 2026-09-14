@@ -301,10 +301,8 @@ export async function calculateCosts(
 
   let iva = params.IVA;
   if (iva === 0) {
-    const goodsPart = (totalGoodsValueCny / params['USD-CNY'])
+    iva = (totalGoodsValueCny / params['USD-CNY'] + params.海运费)
       * params['USD-CLP'] * 0.3 * 0.19;
-    const shippingPart = params.海运费 * params['USD-CLP'] * 0.19;
-    iva = goodsPart + shippingPart;
   }
 
   const results = dataWithVolumes.map((row, index) => {

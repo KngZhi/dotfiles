@@ -24,7 +24,7 @@ Callers must normalize pairs/dozens and repair or allocate missing CBM before th
 | `inlandFreightCny` | conditional | Explicit value wins |
 | `inlandPayer` | conditional | `factory` → 0; `self` → CNY 5,500 |
 | `unloadingFeeClp` | no | CLP 125,000 |
-| `clearanceMiscFeeClp` | no | Pre-arrival estimate CLP 1,350,000 |
+| `clearanceMiscFeeClp` | no | Pre-arrival estimate CLP 1,500,000 |
 | `usdClp` | no | Fetch live from `open.er-api.com` when absent; failure is fatal |
 | `cnyClp` | no | 135 |
 | `usdCny` | no | `usdClp / cnyClp` |
@@ -52,12 +52,12 @@ unloading/unit = unloadingFeeClp × volume share / quantity
 clearance/unit = clearanceMiscFeeClp × volume share / quantity
 ```
 
-Actual IVA is used when nonzero. Otherwise:
+Actual IVA is used when nonzero. Otherwise use the user's operating estimate
+specified on 2026-09-14, applying 30% to goods and sea freight together:
 
 ```text
 estimated IVA total
-= total goods CNY / usdCny × usdClp × 30% × 19%
-+ seaFreightUsd × usdClp × 19%
+= (total goods CNY / usdCny + seaFreightUsd) × usdClp × 30% × 19%
 
 IVA/unit = estimated IVA total × goods-value share / quantity
 ```

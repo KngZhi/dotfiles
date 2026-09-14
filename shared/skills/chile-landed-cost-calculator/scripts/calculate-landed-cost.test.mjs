@@ -28,7 +28,7 @@ test('resolves shared defaults while keeping sea freight explicit', async () => 
       seaFreightUsd: { kind: 'explicit' },
       inlandFreightCny: { kind: 'derived', detail: 'inlandPayer=factory' },
       unloadingFeeClp: { kind: 'default', detail: '125000' },
-      clearanceMiscFeeClp: { kind: 'default', detail: '1350000' },
+      clearanceMiscFeeClp: { kind: 'default', detail: '1500000' },
       usdClp: { kind: 'fetched', detail: USD_RATES_URL },
       cnyClp: { kind: 'default', detail: '135' },
       usdCny: { kind: 'derived', detail: 'usdClp/cnyClp' },
@@ -84,9 +84,9 @@ test('reuses the container IVA estimate and default cost scenario', async () => 
   });
 
   assert.equal(result.totals.ivaWasEstimated, true);
-  assert.equal(result.totals.ivaTotalClp, 178695);
-  assert.equal(result.rows[0].unroundedLandedCostClp, 2688.695);
-  assert.equal(result.rows[0].landedCostClp, 2689);
+  assert.equal(result.totals.ivaTotalClp, 58995);
+  assert.equal(result.rows[0].unroundedLandedCostClp, 2718.995);
+  assert.equal(result.rows[0].landedCostClp, 2719);
 });
 
 test('rejects missing inputs instead of producing plausible zero costs', async () => {

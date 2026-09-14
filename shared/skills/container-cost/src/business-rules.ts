@@ -1,5 +1,5 @@
 export const DEFAULT_UNLOADING_FEE_CLP = 125_000;
-export const DEFAULT_PRE_ARRIVAL_CLEARANCE_MISC_FEE_CLP = 1_350_000;
+export const DEFAULT_PRE_ARRIVAL_CLEARANCE_MISC_FEE_CLP = 1_500_000;
 export const DEFAULT_SELF_PAID_INLAND_FEE_CNY = 5_500;
 export const DEFAULT_CNY_CLP = 135;
 export const USD_RATES_URL = 'https://open.er-api.com/v6/latest/USD';
