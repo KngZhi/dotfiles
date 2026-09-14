@@ -1,5 +1,9 @@
 # Shared agent instructions
 
+Available locally: `in2csv` reads `.xls` / `.xlsx` files directly as CSV;
+Python `openpyxl` reads workbook structure; `trello` is installed and authenticated.
+See `~/repo/dotfiles/shared/tools.md` for tool details; use the applicable skill.
+
 ## Pull request size and stacks
 
 This section applies only to work that will land as a pull request. Direct
