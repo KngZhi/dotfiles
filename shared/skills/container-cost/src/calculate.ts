@@ -80,9 +80,14 @@ export function validateSheetNames(workbook: XLSX.WorkBook): void {
   }
 }
 
+function normalizeDataHeader(value: unknown): string {
+  const header = String(value ?? '').trim();
+  return header === '单价（元/打）' ? '单价' : header;
+}
+
 export function validateDataColumns(worksheet: XLSX.WorkSheet): void {
   const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
-  const headers = (rows[0] ?? []).map(value => String(value ?? '').trim());
+  const headers = (rows[0] ?? []).map(normalizeDataHeader);
   const missing = REQUIRED_DATA_COLUMNS.filter(column => !headers.includes(column));
   if (missing.length) throw new Error(`data sheet 缺少列：${missing.join(', ')}`);
 }
@@ -139,7 +144,8 @@ export function loadDataSheet(workbook: XLSX.WorkBook): ContainerDataRow[] {
   const sheet = workbook.Sheets.data;
   validateDataColumns(sheet);
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][];
-  const headers = (rows[0] ?? []).map(value => String(value ?? '').trim());
+  const headers = (rows[0] ?? []).map(normalizeDataHeader);
+  const dozenPriceHeader = (rows[0] ?? []).some(value => String(value ?? '').trim() === '单价（元/打）');
   const result: ContainerDataRow[] = [];
 
   for (let index = 1; index < rows.length; index += 1) {
@@ -151,6 +157,9 @@ export function loadDataSheet(workbook: XLSX.WorkBook): ContainerDataRow[] {
       values[header] = row[column];
     });
     const excelRow = index + 1;
+    if (dozenPriceHeader && asPricingUnit(values.计价单位, excelRow) === '双') {
+      throw new Error(`data sheet 第 ${excelRow} 行「计价单位」与「单价（元/打）」冲突`);
+    }
     const productNumber = asText(values.货号);
     if (!productNumber) throw new Error(`data sheet 第 ${excelRow} 行缺少货号`);
 

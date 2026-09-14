@@ -6,6 +6,7 @@ import test from 'node:test';
 import * as XLSX from './xlsx.js';
 import {
   calculateContainerFile,
+  loadDataSheet,
   normalizePricingUnits,
   OPTIONAL_CONFIG_PARAMS,
   REQUIRED_CONFIG_PARAMS,
@@ -25,6 +26,27 @@ const sockRow: ContainerDataRow = {
   供应商: '新疆',
   计价单位: '双',
 };
+
+test('reads plain or dozen-labelled prices and excludes the displayed total', () => {
+  for (const priceHeader of ['单价', '单价（元/打）']) {
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+      ['货号', '品名', '条形码', priceHeader, '装箱数', '件数', '总数量', '总立方', '供应商', '计价单位'],
+      ['SOCK1', '袜子', '6903010120680', 7.44, 100, 14, 1400, 1.5, '新疆', '打'],
+      ['DATA_END'],
+      ['合计', null, null, null, null, 14, 1400],
+    ]), 'data');
+    const rows = loadDataSheet(workbook);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].单价, 7.44);
+    assert.equal(rows[0].总数量, 1400);
+    assert.deepEqual(normalizePricingUnits(rows), rows);
+    if (priceHeader === '单价（元/打）') {
+      workbook.Sheets.data.J2.v = '双';
+      assert.throws(() => loadDataSheet(workbook), /计价单位.*冲突/);
+    }
+  }
+});
 
 test('converts supplier pair pricing to the dozen unit used by costs and K2046', () => {
   const [normalized] = normalizePricingUnits([sockRow]);
