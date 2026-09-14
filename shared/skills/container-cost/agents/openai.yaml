@@ -1,4 +1,4 @@
 interface:
-  display_name: "货柜整理与成本计算"
-  short_description: "自动归档货柜材料、查询船期并补齐成本参数"
-  default_prompt: "Use $container-cost to organize my new container documents, look up the official ETA, and tell me only what data is still missing."
+  display_name: "货柜成本计算"
+  short_description: "对整理完成的标准货柜表配置费用、计算成本并按授权导入系统"
+  default_prompt: "Use $container-cost to validate this prepared container workbook, apply the documented cost parameters, and calculate its K2046 import costs."
