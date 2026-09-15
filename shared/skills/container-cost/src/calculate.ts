@@ -24,7 +24,7 @@ export const OPTIONAL_CONFIG_PARAMS = [
   '清关杂费', 'IVA',
 ] as const;
 
-export type PricingUnit = '双' | '打';
+export type PricingUnit = '双' | '打' | '条';
 
 export interface ContainerDataRow {
   货号: string;
@@ -82,7 +82,7 @@ export function validateSheetNames(workbook: XLSX.WorkBook): void {
 
 function normalizeDataHeader(value: unknown): string {
   const header = String(value ?? '').trim();
-  return header === '单价（元/打）' ? '单价' : header;
+  return ['单价（元/打）', '单价（元/条）', '单价（元）'].includes(header) ? '单价' : header;
 }
 
 export function validateDataColumns(worksheet: XLSX.WorkSheet): void {
@@ -136,8 +136,8 @@ function asNumber(value: unknown, column: string, row: number, nullable = false)
 function asPricingUnit(value: unknown, row: number): PricingUnit | undefined {
   const unit = asText(value);
   if (!unit) return undefined;
-  if (unit === '双' || unit === '打') return unit;
-  throw new Error(`data sheet 第 ${row} 行「计价单位」只支持 双 或 打，收到：${unit}`);
+  if (unit === '双' || unit === '打' || unit === '条') return unit;
+  throw new Error(`data sheet 第 ${row} 行「计价单位」只支持 双、打 或 条，收到：${unit}`);
 }
 
 export function loadDataSheet(workbook: XLSX.WorkBook): ContainerDataRow[] {
@@ -145,7 +145,9 @@ export function loadDataSheet(workbook: XLSX.WorkBook): ContainerDataRow[] {
   validateDataColumns(sheet);
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][];
   const headers = (rows[0] ?? []).map(normalizeDataHeader);
-  const dozenPriceHeader = (rows[0] ?? []).some(value => String(value ?? '').trim() === '单价（元/打）');
+  const priceHeader = (rows[0] ?? []).map(value => String(value ?? '').trim());
+  const headerUnit = priceHeader.includes('单价（元/打）') ? '打'
+    : priceHeader.includes('单价（元/条）') ? '条' : undefined;
   const result: ContainerDataRow[] = [];
 
   for (let index = 1; index < rows.length; index += 1) {
@@ -157,8 +159,9 @@ export function loadDataSheet(workbook: XLSX.WorkBook): ContainerDataRow[] {
       values[header] = row[column];
     });
     const excelRow = index + 1;
-    if (dozenPriceHeader && asPricingUnit(values.计价单位, excelRow) === '双') {
-      throw new Error(`data sheet 第 ${excelRow} 行「计价单位」与「单价（元/打）」冲突`);
+    const pricingUnit = asPricingUnit(values.计价单位, excelRow);
+    if (headerUnit && pricingUnit && pricingUnit !== headerUnit) {
+      throw new Error(`data sheet 第 ${excelRow} 行「计价单位」与「单价（元/${headerUnit}）」冲突`);
     }
     const productNumber = asText(values.货号);
     if (!productNumber) throw new Error(`data sheet 第 ${excelRow} 行缺少货号`);
@@ -193,7 +196,7 @@ function requireDozenDivisible(value: number, column: '装箱数' | '总数量',
  *
  * 原始材料按「双」输入时，在任何成本聚合之前转换单价、装箱数和总数量，并将
  * 计价单位改为「打」。因此再次调用本函数不会重复换算。旧模板没有计价单位时
- * 保持原值，避免猜测非袜子商品的单位。
+ * 保持原值，避免猜测非袜子商品的单位。女士内裤显式标记「条」，保留原价及数量。
  */
 export function normalizePricingUnits(dataRows: ContainerDataRow[]): ContainerDataRow[] {
   return dataRows.map(row => {

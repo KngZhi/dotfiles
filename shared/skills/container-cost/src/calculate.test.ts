@@ -146,3 +146,33 @@ test('runs a completely local calculation and writes to the configured output di
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+
+test('mixed container retains underwear pieces through loading and costing', async () => {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ['货号', '品名', '条形码', '单价（元）', '装箱数', '件数', '总数量', '总立方', '供应商', '计价单位'],
+    ['40S-1381', '女士内裤', '', 2.9, 1200, 2, 2400, 1, '恒伟', '条'],
+    ['SOCK1', '袜子', '', 12, 100, 1, 100, 1, '新疆', '打'],
+    ['DATA_END'],
+  ]), 'data');
+  const rows = loadDataSheet(workbook);
+  assert.deepEqual(normalizePricingUnits(rows), rows);
+  assert.equal(rows[0].单价 * rows[0].总数量, 6960);
+  const results = await calculateCosts(rows, {
+    海运费: 0, 内陆费: 0, 卸柜费: 0, 清关杂费: 0,
+    'USD-CLP': 900, 'USD-CNY': 7, 'CNY-CLP': 100, IVA: 816,
+    货柜号: 'TEST',
+  }, async () => ({ products: new Map(), checkedProductNumbers: new Set(), errors: [] }));
+  assert.equal(results[0].装箱数, 1200);
+  assert.equal(results[0].件数, 2);
+  assert.equal(results[0].成本价, 290);
+  assert.equal(results[1].装箱数, 100);
+  assert.equal(results[1].成本价, 1201);
+  workbook.Sheets.data.D1.v = '单价（元/打）';
+  assert.throws(() => loadDataSheet(workbook), /计价单位.*冲突/);
+  workbook.Sheets.data.D1.v = '单价（元/条）';
+  assert.throws(() => loadDataSheet(workbook), /计价单位.*冲突/);
+  workbook.Sheets.data.J3.v = '条';
+  assert.equal(loadDataSheet(workbook)[0].计价单位, '条');
+});
