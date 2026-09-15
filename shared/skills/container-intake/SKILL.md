@@ -46,8 +46,14 @@ python3 scripts/auto_verify.py register '/绝对路径/柜号.xlsx' --session '$
 ```
 
 只执行当前宿主对应的一条。命令从技能目录执行。登记成功后，每次工具完成都会
-检查本会话登记的文件；内容变化便自动运行验证，保存同目录 `.validation.json` 并
+检查本会话登记的文件；内容变化便自动运行验证，给具体问题单元格写入浅红底、深红字和问题批注，保存同目录 `.validation.json` 并
 反馈给 AI。结束交付前仍检查报告，不能把登记成功当验证成功。
+首次标注保留 `.before-annotations.xlsx` 备份，`.annotations.json` 跟踪脚本标记用于修复后的清除。
+正常值、公式缓存和原有用户批注保留；脚本不修改业务数据。外部WPS已打开的窗口须关闭后重新打开查看，避免旧缓冲覆盖标注。
+自动检查识别不到的业务问题，AI核实后写同目录 `<柜号>.review.json`：
+`{"issues":[{"sheet":"data","cell":"A53","expected_value":"SC109/C109","blocking":true,"message":"43打混合包需确认各货号数量，拆分核对后再导入"}]}`。
+hook会合并这些问题并标注；单元格值与定位不一致时停止标注并要求更新审查记录，不按斜杠猜测混合包。
+解决来源问题后更新该审查文件；仅改Excel值不会自动证明来源问题已解决。
 Claude Code 使用本技能 frontmatter hook；Codex 由 `shared/build.sh` 安装原生事件转接。
 Codex 新增或变更 hook 后须在原生 `/hooks` 菜单信任确切定义；未信任会跳过执行。
 不要用绕过信任参数代替这一步。安装配置不代表已信任或已执行。

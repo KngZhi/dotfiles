@@ -63,6 +63,7 @@ def run_hook(event):
         if not entry:
             return {}
         from validate_workbook import validate
+        from annotate_workbook import annotate
         for name, previous in list(entry['files'].items()):
             path = Path(name)
             if not path.exists():
@@ -72,18 +73,36 @@ def run_hook(event):
             try:
                 fingerprint = hashlib.sha256(path.read_bytes()).hexdigest()
                 report = path.with_suffix('.validation.json')
-                if fingerprint == previous and report.exists():
+                review_path = path.with_suffix('.review.json')
+                review_bytes = review_path.read_bytes() if review_path.exists() else b''
+                review_hash = hashlib.sha256(review_bytes).hexdigest()
+                if previous == {'workbook': fingerprint, 'review': review_hash} and report.exists():
                     continue
                 result = validate(path)
+                if review_bytes:
+                    import openpyxl
+                    wb = openpyxl.load_workbook(path, data_only=True)
+                    for item in json.loads(review_bytes)['issues']:
+                        if wb[item['sheet']][item['cell']].value != item['expected_value']:
+                            raise ValueError('来源审查定位已变化，请更新 review.json：' + item['cell'])
+                        result['issues'].append(dict(level='error' if item.get('blocking') else 'review',
+                            sheet=item['sheet'], cell=item['cell'], message=('阻断导入：' if item.get('blocking') else '') + item['message']))
+                    wb.close()
+                    if any(i['level'] == 'error' for i in result['issues']):
+                        result['status'] = 'ERROR'
                 if hashlib.sha256(path.read_bytes()).hexdigest() != fingerprint:
                     raise ValueError('验证期间文件发生变化，下次 hook 重试')
+                marked = annotate(path, result['issues'], fingerprint)
+                fingerprint = hashlib.sha256(path.read_bytes()).hexdigest()
+                result['sha256'] = fingerprint
+                result['annotated_cells'] = marked
                 result['hook'] = {'session_id': event['session_id'], 'event': event['hook_event_name']}
                 temp = report.with_suffix('.json.tmp')
                 temp.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
                 temp.replace(report)
-                entry['files'][name] = fingerprint
+                entry['files'][name] = {'workbook': fingerprint, 'review': review_hash}
                 details = '; '.join(f"{i['sheet']}!{i['cell']} {i['message']}" for i in result['issues'][:5])
-                messages.append(f"{name}: {result['status']}，{len(result['issues'])}项；报告 {report}。{details}")
+                messages.append(f"{name}: {result['status']}，{len(result['issues'])}项；已标红并批注{marked}个单元格；报告 {report}。{details}")
             except Exception as exc:
                 messages.append(f'{name}: 自动验证失败：{exc}；不能宣称已验证，下次工具完成后重试')
         entry['updated'] = time.time()
