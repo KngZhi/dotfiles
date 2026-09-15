@@ -49,6 +49,8 @@ python3 scripts/auto_verify.py register '/绝对路径/柜号.xlsx' --session '$
 检查本会话登记的文件；内容变化便自动运行验证，保存同目录 `.validation.json` 并
 反馈给 AI。结束交付前仍检查报告，不能把登记成功当验证成功。
 Claude Code 使用本技能 frontmatter hook；Codex 由 `shared/build.sh` 安装原生事件转接。
+Codex 新增或变更 hook 后须在原生 `/hooks` 菜单信任确切定义；未信任会跳过执行。
+不要用绕过信任参数代替这一步。安装配置不代表已信任或已执行。
 未登记会话直接返回，不扫描目录。结束本次整理、完成最后验证后运行
 `auto_verify.py unregister`（Claude 加同一 `--session`）；也可继续保留以便本会话修改。
 登记最长保留7天，每会话最多32份、总共128个会话。跨会话续做须重新登记。
