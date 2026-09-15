@@ -23,6 +23,14 @@ description: 对已整理并核对完成的标准货柜表配置费用、计算�
 人民币兑美元报价复用相邻 `chile-landed-cost-calculator/scripts/boc-exchange-rate.mjs`；
 这只共享中行汇率读取，不改变上述成本引擎边界。
 
+## 导入前必须完成
+
+成本结果写入该柜原有 Google 表格的「成本计算结果」工作表，与 data/config 同文件，不能另建一份作为最终交付。
+先交付结果表，补齐所有价格并审查分类，再导出最新成本工作表运行价格预检。
+成本价、箱价格、大包价格、包价格、单价中任一值为0、空白、非数字或负数，均阻断正式导入；分类1/分类2空白同样阻断。
+一般导入授权、已存在商品或“小问题”不能解除价格阻断，不猜售价、不复制其他档售价凑数。
+所有正式导入必须使用 `npm run import:checked -- <成本.xlsx> <导入参数>`，禁止直接调用CLI绕过检查；详见 references/import.md。
+
 ## 共同约束
 
 正式输入放 `~/Library/CloudStorage/OneDrive-Personal/source_files/containers`，

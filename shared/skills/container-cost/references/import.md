@@ -1,5 +1,12 @@
 # K2046 导入
 
+## 价格与交付门槛
+
+先把成本结果写入该柜原 Google 表格的「成本计算结果」工作表，完成补价、分类审查。用户修改后重新读取并导出该工作表，不能继续使用旧本地成本文件。
+导入前运行 `npm run import:checked -- <成本Excel> --check-only`。成本价和四档售价必须全部为正数，分类1/分类2必须非空；有任何零价、空值或无效值，拒绝导入并在成本表标出具体单元格。不得用已有授权或普通例外确认绕过，不自动编造价格。
+正式导入通过同一入口 `npm run import:checked -- <成本Excel> <参数>` 执行，每次调用重新检查。直接调用 `k2046 purchase import-container` 仅限只读预解析，不得正式写入。
+
+
 导入会创建采购单，正常导入可能同时提交。先确认导入本身在用户请求范围内，
 并核对准确的文件、柜号、仓库、供应商、分类、出柜时间和 ETA。
 
@@ -29,7 +36,7 @@ K2046 前端没有独立的「发柜时间」字段，因此借用「发票时�
 
 ```bash
 k2046 purchase import-container <成本Excel> --parse-only
-k2046 purchase import-container <成本Excel> --container-no <柜号> --shipment-date <ETA>
+npm run import:checked -- <成本Excel> --container-no <柜号> --shipment-date <ETA>
 k2046 purchase update-invoice-time <采购单ID> --invoice-date-time "<实际发柜日期> 00:00:00"
 ```
 
