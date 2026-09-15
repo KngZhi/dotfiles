@@ -74,4 +74,4 @@ npm run process <容器.xlsx>
 
 ## 成本结果的在线显示
 
-结果必须放入原货柜Google表格的「成本计算结果」工作表。运行相邻 container-intake 的 `uv run --with gspread --with google-auth-oauthlib --with openpyxl scripts/format_cost_sheet.py <原货柜表格ID>` 统一在线样式。白底黑字，冻结首行及货号列；品名换行，价格显示整数和千位分隔。缺价格/分类为浅红底深红字，低于25%毛利为浅黄底，表头批注解释区别。原数值不为美化而改变。读取实际Google格式与效果，不以xlsx规则复制成功代替显示验收。
+结果必须放入原货柜Google表格的「成本计算结果」工作表。运行相邻 container-intake 的 `uv run --with gspread --with google-auth-oauthlib --with openpyxl scripts/format_cost_sheet.py <原货柜表格ID>` 统一在线样式。白底黑字，冻结首行及货号列；品名换行，价格显示整数和千位分隔。缺价格/分类为浅红底深红字，低于25%毛利为浅黄底，仅在需要业务解释的具体问题单元格写批注，不给正常单元格或每个表头重复添加通用说明。原数值不为美化而改变。读取实际Google格式与效果，不以xlsx规则复制成功代替显示验收。

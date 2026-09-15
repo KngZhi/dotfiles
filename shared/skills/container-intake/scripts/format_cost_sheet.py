@@ -38,8 +38,6 @@ def main(ref):
     yellow = {'backgroundColor': {'red': 1, 'green': .96, 'blue': .8}, 'textFormat': {'foregroundColor': {'red': .45, 'green': .3, 'blue': 0}}}
     for i, (rg, formula, fmt) in enumerate([(area(5, 10, 1), '=IFERROR(OR(LEN(TRIM(F2&""))=0,VALUE(F2)<=0),TRUE)', red), (area(16, 18, 1), '=LEN(TRIM(Q2&""))=0', red), (area(6, 10, 1), '=IFERROR(AND(VALUE(G2)>0,VALUE($F2)>0,(VALUE(G2)-VALUE($F2))/VALUE(G2)<0.25),FALSE)', yellow)]):
         req.append({'addConditionalFormatRule': {'index': i, 'rule': {'ranges': [rg], 'booleanRule': {'condition': {'type': 'CUSTOM_FORMULA', 'values': [{'userEnteredValue': formula}]}, 'format': fmt}}}})
-    for c in range(5, 10):
-        req.append({'updateCells': {'range': area(c,c+1,0,1), 'rows': [{'values': [{'note': '浅红：价格缺失、无效或不大于0，阻断导入。浅黄：毛利率低于25%，需审查。'}]}], 'fields': 'note'}})
     req.append({'autoResizeDimensions': {'dimensions': {'sheetId': sid, 'dimension': 'ROWS', 'startIndex': 0, 'endIndex': end}}})
     assert ws.get_all_values() == before, '表格变化，请重试'
     sh.batch_update({'requests': req})
