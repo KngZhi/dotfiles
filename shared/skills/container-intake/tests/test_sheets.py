@@ -34,6 +34,15 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual([r[0] for r in m[4:]], ['合计', '打数合计', '条数合计'])
         self.assertIn('MATCH("DATA_END",A:A,0)-1', m[4][8])
 
+    def test_set_keeps_id_columns_as_text(self):
+        # A numeric-looking 货号/条形码 sent through `set` must stay a raw string: parsing it
+        # to int/float and sending a JSON number strips Sheets' TEXT number format from the
+        # cell and turns the barcode into a number for good.
+        self.assertEqual(sheets.set_cell_value('data', 'B2', '6903070215357'), '6903070215357')
+        self.assertEqual(sheets.set_cell_value('data', 'A2', '12345'), '12345')
+        self.assertEqual(sheets.set_cell_value('data', 'G2', '12.5'), 12.5)
+        self.assertEqual(sheets.set_cell_value('config', 'B2', '6903070215357'), 6903070215357)
+
     def test_loose_defaults_to_zero(self):
         row = {k: v for k, v in ROW.items() if k != '散件数'}
         self.assertEqual(sheets.data_matrix([row])[1][9], 0)

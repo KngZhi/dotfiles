@@ -16,6 +16,8 @@ from pathlib import Path
 import re
 import sys
 
+from openpyxl.utils import column_index_from_string
+
 sys.path.insert(0, str(Path(__file__).parent))
 from grid import book_from_matrices, load_xlsx  # noqa: E402
 from validate_workbook import EXIT_CODES, SCHEMA, STANDARD_HEADERS, strip_trailing, validate, validate_book  # noqa: E402
@@ -143,6 +145,15 @@ def parse_value(text):
         except ValueError:
             pass
     return text
+
+
+def set_cell_value(sheet, cell, raw):
+    """Value to write for `set data!<cell>=<raw>`. 货号/条形码 (columns A, B on data) must
+    always stay text: parsing them as int/float and sending a JSON number strips Sheets'
+    TEXT number format from the cell and turns the barcode into a number for good."""
+    if sheet == 'data' and column_index_from_string(re.match('[A-Z]+', cell).group()) <= TEXT_COLUMNS:
+        return raw
+    return parse_value(raw)
 
 
 # ---- notes and marks (pure) ---------------------------------------------------
@@ -372,8 +383,8 @@ def cmd_set(args):
     config_keys = None
     for assignment in args.assignments:
         target, _, raw = assignment.partition('=')
-        value = parse_value(raw)
         if target.startswith('config.'):
+            value = parse_value(raw)
             key = target[len('config.'):]
             if config_keys is None:
                 config_keys = sh.worksheet('config').col_values(1)
@@ -384,6 +395,7 @@ def cmd_set(args):
             sheet, _, cell = target.partition('!')
             if not cell or not CELL.fullmatch(cell):
                 raise SystemExit(f'目标须为 sheet!A1 或 config.参数：{target}')
+            value = set_cell_value(sheet, cell, raw)
             updates.setdefault(sheet, []).append({'range': cell, 'values': [[value]]})
     for sheet, batch in updates.items():
         sh.worksheet(sheet).batch_update(batch, value_input_option='USER_ENTERED')
