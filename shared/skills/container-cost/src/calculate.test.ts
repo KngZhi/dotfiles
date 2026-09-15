@@ -3,10 +3,12 @@ import { existsSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import test from 'node:test';
+import { execFileSync } from 'node:child_process';
 import * as XLSX from './xlsx.js';
 import {
   calculateContainerFile,
   calculateCosts,
+  generateOutput,
   loadDataSheet,
   normalizePricingUnits,
   OPTIONAL_CONFIG_PARAMS,
@@ -27,6 +29,40 @@ const sockRow: ContainerDataRow = {
   供应商: '新疆',
   计价单位: '双',
 };
+
+test('export preserves zero and missing data and adds bounded red warning rules', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'cost-warnings-'));
+  try {
+    const output = generateOutput([{
+      货号: 'TEST', 条形码: '001234', 产品名1: 'TEST 袜子', 产品名2: 'Calcetín',
+      供应商: 'Supplier', 成本价: 123, boxPrice: 0, bigBagPrice: 20,
+      bagPrice: 0, 装箱数: 100, 件数: 1, 仓库: 'lazon', category1: '袜子',
+    }], 'test.xlsx', directory);
+    const sheet = XLSX.readFile(output).Sheets['成本计算结果'];
+    assert.equal(sheet.B2.v, '001234');
+    assert.equal(sheet.F2.v, 123);
+    assert.equal(sheet.G2.v, 0);
+    assert.equal(sheet.H2.v, 20);
+    assert.equal(sheet.J2.v, '');
+    assert.equal(sheet.R2.v, '');
+    execFileSync('python3', ['-c', `
+import sys, zipfile, xml.etree.ElementTree as E
+with zipfile.ZipFile(sys.argv[1]) as z:
+ s=E.fromstring(z.read('xl/worksheets/sheet1.xml'))
+ styles=E.fromstring(z.read('xl/styles.xml'))
+n={'x':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+rules=s.findall('x:conditionalFormatting',n)
+assert [r.get('sqref') for r in rules]==['F2:J2','Q2:R2']
+assert 'VALUE(F2)=0' in rules[0].find('x:cfRule/x:formula',n).text
+assert rules[1].find('x:cfRule/x:formula',n).text=='LEN(TRIM(Q2&""))=0'
+for r in rules:
+ dxf=styles.find('x:dxfs',n)[int(r.find('x:cfRule',n).get('dxfId'))]
+ assert dxf.find('x:fill/x:patternFill/x:fgColor',n).get('rgb')=='FFFFC7CE'
+`, output]);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 test('reads plain or dozen-labelled prices and excludes the displayed total', () => {
   for (const priceHeader of ['单价', '单价（元/打）']) {

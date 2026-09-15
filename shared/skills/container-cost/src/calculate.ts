@@ -1,5 +1,7 @@
 import { existsSync, mkdirSync, readFileSync } from 'fs';
 import { basename, extname, join } from 'path';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import * as XLSX from './xlsx.js';
 import { PATHS } from './config.js';
 import {
@@ -385,6 +387,7 @@ export function generateOutput(
   const baseName = basename(inputFileName, extname(inputFileName));
   const outputPath = join(outputDirectory, `成本计算_${baseName}_${timestamp}.xlsx`);
   XLSX.writeFile(workbook, outputPath);
+  execFileSync('python3', [fileURLToPath(new URL('./highlight-result.py', import.meta.url)), outputPath]);
   return outputPath;
 }
 
