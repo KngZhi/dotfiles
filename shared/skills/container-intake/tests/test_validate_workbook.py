@@ -50,7 +50,7 @@ class ValidationTests(unittest.TestCase):
                 cell.value = original
 
     def test_arithmetic_and_totals(self):
-        for coordinate in ['I2', 'J2', 'K2', 'O2', 'H4', 'I4', 'J4', 'O4']:
+        for coordinate in ['I2', 'J2', 'H4', 'I4', 'J4', 'O4']:
             with self.subTest(cell=coordinate):
                 cell = self.wb['data'][coordinate]
                 original = cell.value
@@ -88,7 +88,7 @@ class ValidationTests(unittest.TestCase):
         s['I4'] = 4300
         s['J4'] = 430
         s['O4'] = .5
-        self.assertEqual(self.check()['status'], 'PASS')
+        self.assertEqual(self.check()['status'], 'REVIEW')
         s['J2'] = 320
         self.assertEqual(self.check()['status'], 'ERROR')
 
@@ -114,6 +114,44 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual(self.check()['status'], 'PASS')
         s['J5'] = 320
         self.assertEqual(self.check()['status'], 'ERROR')
+
+    def test_volume_difference_requires_source_judgment(self):
+        self.wb['data']['O2'] = .15
+        self.wb['data']['O4'] = .15
+        result = self.check()
+        self.assertEqual(result['status'], 'REVIEW')
+        self.assertTrue(any(i['cell'] == 'O2' and i['level'] == 'review' for i in result['issues']))
+
+    def test_pass_does_not_claim_source_correctness(self):
+        # Plausible but wrong identity cannot be rejected from output alone.
+        self.wb['data']['A2'] = 'WRONG-SKU'
+        result = self.check()
+        self.assertEqual(result['status'], 'PASS')
+        self.assertEqual(result['source_review']['status'], 'NOT_PERFORMED')
+
+    def test_layout_gap_is_review_but_misplaced_note_is_checked(self):
+        c = self.wb['config']
+        c.insert_cols(3)
+        self.assertEqual(self.check()['status'], 'REVIEW')
+        c['D3'] = 123
+        self.assertEqual(self.check()['status'], 'ERROR')
+
+    def test_mixed_loose_quantities_cannot_be_added(self):
+        self.test_mixed_units_require_separate_quantity_totals()
+        s = self.wb['data']
+        s['J5'] = None
+        s['S1'] = '散件数'
+        s['S2'] = s['S3'] = 1
+        s['J2'] = s['J3'] = 161
+        s['I2'] = s['I3'] = 1610
+        s['I5'] = 3220
+        s['J6'] = s['J7'] = 161
+        s['S6'] = s['S7'] = 1
+        self.assertEqual(self.check()['status'], 'REVIEW')
+        s['S5'] = 2
+        result = self.check()
+        self.assertEqual(result['status'], 'ERROR')
+        self.assertTrue(any(i['cell'] == 'S5' for i in result['issues']))
 
 
 if __name__ == '__main__':

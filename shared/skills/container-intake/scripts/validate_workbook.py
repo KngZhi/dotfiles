@@ -41,14 +41,15 @@ def validate(path):
                 return None
             return v.value
         return cell.value
-    def compare(s, coordinate, actual, expected, label):
+    def compare(s, coordinate, actual, expected, label, level='error'):
         if number(actual) and not math.isclose(actual, expected, rel_tol=1e-6, abs_tol=0.01 if label == '货值' else 1e-6):
-            issue('error', s, coordinate, f'{label}不符：实际 {actual}，应为 {expected}')
+            issue(level, s, coordinate, f'{label}不符：实际 {actual}，参照值 {expected}' + ('；须对照原件判断口径，不自动改值' if level == 'review' else ''))
     if set(wb.sheetnames) != {'data', 'config'}:
         issue('error', '', '', '工作簿必须且只能包含 data、config')
     totals = {c: [] for c in (8, 9, 10, 15)}
     rows = 0
     unit_totals = {}
+    loose_totals = {}
     if 'data' in wb:
         ws = wb['data']
         headers = [c.value for c in ws[1]]
@@ -93,22 +94,24 @@ def validate(path):
                     unit = vals.get(18)
                     if unit in ('打', '条'):
                         unit_totals.setdefault(unit, []).append(vals[10])
+                        loose_totals.setdefault(unit, []).append(loose)
                     if (headers[5] == '单价（元/打）' and unit != '打') or (headers[5] == '单价（元/条）' and unit != '条'):
                         issue('error', 'data', f'R{r}', '计价单位与单价标题冲突')
                     for target, factors, label in [(10, (7, 8), '数量'), (9, (6, 10), '货值'), (15, (11, 8), '体积')]:
                         if target == 15 and loose:
-                            continue  # 总立方包含尾包，必须独立对照原件。
+                            issue('review', 'data', f'O{r}', '含散件，须对照源行核对整件与尾包体积之和')
+                            continue
                         if all(number(vals[c]) for c in factors):
                             expected = math.prod(vals[c] for c in factors)
                             if target == 10 and number(loose):
                                 expected += loose
-                            compare('data', ws.cell(r, target).coordinate, vals[target], expected, label)
+                            compare('data', ws.cell(r, target).coordinate, vals[target], expected, label, 'review' if target == 15 else 'error')
                             if vals[target] in (None, '') and ws.cell(r, target).data_type != 'f':
                                 issue('pending', 'data', ws.cell(r, target).coordinate, f'缺少可核对的{label}')
                     dims = [vals[c] for c in (12, 13, 14)]
                     if any(v is not None for v in dims):
                         if all(number(v) for v in dims):
-                            compare('data', f'K{r}', vals[11], math.prod(dims) / 1000000, '箱体积（厘米换立方米）')
+                            compare('data', f'K{r}', vals[11], math.prod(dims) / 1000000, '箱体积（厘米换立方米）', 'review')
                         else:
                             issue('pending', 'data', f'L{r}:N{r}', '长宽高未完整填写')
                     for c in totals:
@@ -121,9 +124,9 @@ def validate(path):
                     issue('error', 'data', f'A{end+1}', 'DATA_END 后只允许一行合计及分单位数量合计')
                 else:
                     for c, values in totals.items():
-                        if c == 10 and len(unit_totals) > 1:
+                        if c in (10, 19) and len(unit_totals) > 1:
                             if read(ws.cell(main[0], c)) not in (None, ''):
-                                issue('error', 'data', f'J{main[0]}', '不同单位数量不能相加')
+                                issue('error', 'data', ws.cell(main[0], c).coordinate, '不同单位数量不能相加')
                             continue
                         cell = ws.cell(main[0], c)
                         v = read(cell)
@@ -144,13 +147,23 @@ def validate(path):
                                     issue('pending', 'data', cell.coordinate, '分单位合计缺少数字')
                                 else:
                                     compare('data', cell.coordinate, value, sum(values), '数量合计')
+                            if len(matches) == 1 and 19 in totals:
+                                cell = ws.cell(matches[0], 19)
+                                value = read(cell)
+                                loose_values = loose_totals[unit]
+                                if all(number(x) for x in loose_values):
+                                    if not number(value):
+                                        issue('pending', 'data', cell.coordinate, '分单位散件合计缺少数字')
+                                    else:
+                                        compare('data', cell.coordinate, value, sum(loose_values), '散件合计')
     if 'config' in wb:
         ws = wb['config']
         config_headers = [c.value for c in ws[1]]
         while config_headers and config_headers[-1] is None:
             config_headers.pop()
         if config_headers != ['参数', '值', '说明']:
-            issue('error', 'config', '1', '必须为 参数 / 值 / 说明 三列')
+            issue('review', 'config', '1', '模板布局偏差：应为 参数 / 值 / 说明；检查多余空列及说明位置，不代表费用数值错误')
+        note_column = config_headers.index('说明') + 1 if '说明' in config_headers else 3
         keys = set()
         for r in range(2, ws.max_row + 1):
             if all(c.value is None for c in ws[r]):
@@ -176,15 +189,22 @@ def validate(path):
                 except (TypeError, ValueError):
                     issue('error', 'config', cell.coordinate, 'ETA 须为日期或 YYYY-MM-DD')
             else:
-                issue('pending', 'config', cell.coordinate, f'参数 {key} 无自动业务规则，须人工核对')
-            note = ws.cell(r, 3).value
+                issue('review', 'config', cell.coordinate, f'参数 {key} 无自动业务规则，须 AI 对照来源核对')
+            note = read(ws.cell(r, note_column))
             if note is not None and not isinstance(note, str):
-                issue('error', 'config', f'C{r}', '说明必须为文本')
+                issue('error', 'config', ws.cell(r, note_column).coordinate, '说明必须为文本')
         for key in {'货柜号', '海运费', '内陆费'} - keys:
             issue('pending', 'config', 'A', f'缺少参数 {key}')
     result = dict(workbook=str(path.resolve()), sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
-                  rows=rows, columns=HEADERS, issues=issues,
-                  status='ERROR' if any(i['level'] == 'error' for i in issues) else 'PENDING' if issues else 'PASS',
+                  rows=rows, columns=[c.value for c in wb['data'][1]] if 'data' in wb else [], issues=issues,
+                  source_review=dict(status='NOT_PERFORMED', checks=[
+                      '对照原件逐行确认柜号、商品、供应商和主条码身份',
+                      '核对源行覆盖：遗漏、重复、尾包合并及拆分均有对应关系',
+                      '确认每行源单位和销售单位，独立核对数量与单价转换、货值守恒',
+                      '核对尺寸、未压缩体积、实际装柜体积及尾包分摊依据',
+                      '核对费用范围、币种、承担方、汇率来源和 ETA 查询日期',
+                      '检查图片与商品对应、工艺、备注和排版']),
+                  status='ERROR' if any(i['level'] == 'error' for i in issues) else 'PENDING' if any(i['level'] == 'pending' for i in issues) else 'REVIEW' if issues else 'PASS',
                   scope='表内列契约与算术；原件归属、单价依据、条码身份、图片、压缩体积和排版须独立核对')
     wb.close()
     cache.close()
@@ -201,7 +221,7 @@ def main():
     result = validate(args.workbook)
     args.report.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     print(f"{result['status']}: {result['rows']} rows; {len(result['issues'])} issues; {args.report}")
-    return {'PASS': 0, 'ERROR': 1, 'PENDING': 2}[result['status']]
+    return {'PASS': 0, 'ERROR': 1, 'PENDING': 2, 'REVIEW': 3}[result['status']]
 
 
 if __name__ == '__main__':
