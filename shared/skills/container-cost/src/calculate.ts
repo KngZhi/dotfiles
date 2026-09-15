@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync } from 'fs';
 import { basename, extname, join } from 'path';
 import * as XLSX from './xlsx.js';
 import { PATHS } from './config.js';
@@ -81,8 +81,14 @@ export function validateSheetNames(workbook: XLSX.WorkBook): void {
   }
 }
 
+const standardColumns = (JSON.parse(readFileSync(new URL(
+  '../../container-intake/references/template-schema.json', import.meta.url,
+), 'utf8')) as { columns: { header: string; field: string }[] }).columns;
+
 function normalizeDataHeader(value: unknown): string {
   const header = String(value ?? '').trim();
+  const standard = standardColumns.find(column => column.header === header);
+  if (standard) return standard.field;
   return ['单价（元/打）', '单价（元/条）', '单价（元）'].includes(header) ? '单价' : header;
 }
 

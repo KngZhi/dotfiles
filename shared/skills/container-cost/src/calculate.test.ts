@@ -202,3 +202,23 @@ test('MF401 keeps four standard cases and all 110 loose dozens through costing',
   assert.equal(pairs.散件数, 110);
   assert.equal(pairs.总数量, 430);
 });
+
+
+test('13-column standard template maps prices, packing, quantities and volumes correctly', () => {
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['货号','条形码','品名','图片','供应商','计价单位','采购单价（元）','标准装箱数','整件数','散件数','总数量','货款合计（元）','总体积（m³）'],
+    ['MF401','6903040084013','女士袜','','新疆','打',10,80,4,110,430,4300,.5],
+    ['40S-1381','6982484013810','女士内裤','','恒伟','条',2.9,1200,2,0,2400,6960,.34],
+    ['DATA_END'],
+  ]), 'data');
+  const rows = loadDataSheet(wb);
+  assert.equal(rows[0].单价, 10);
+  assert.equal(rows[0].散件数, 110);
+  assert.equal(rows[0].总数量, 430);
+  assert.equal(rows[0].总立方, .5);
+  assert.equal(rows[1].供应商, '恒伟');
+  assert.equal(rows[1].计价单位, '条');
+  assert.equal(rows[1].装箱数, 1200);
+  assert.deepEqual(normalizePricingUnits(rows), rows);
+});

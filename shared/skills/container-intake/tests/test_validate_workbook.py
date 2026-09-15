@@ -153,6 +153,27 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual(result['status'], 'ERROR')
         self.assertTrue(any(i['cell'] == 'S5' for i in result['issues']))
 
+    def test_standard_template_maps_units_and_loose_columns(self):
+        old = self.wb['data']
+        self.wb.remove(old)
+        s = self.wb.create_sheet('data', 0)
+        s.append(v.STANDARD_HEADERS)
+        s.append(['MF401', '6903040084013', '女士袜', None, '新疆', '打', 10, 80, 4, 110, 430, 4300, .5])
+        s.append(['DATA_END'])
+        s.append(['合计', None, None, None, None, None, None, None, 4, 110, 430, 4300, .5])
+        self.wb['config'].append(['发柜日期', '2026-09-08'])
+        self.wb['config'].append(['ETA', '2026-10-18'])
+        result = self.check()
+        self.assertFalse(any(i['level'] in ('error', 'pending') for i in result['issues']))
+        self.assertEqual(result['rows'], 1)
+        s['K2'] = 320
+        result = self.check()
+        self.assertTrue(any(i['cell'] == 'K2' and i['level'] == 'error' for i in result['issues']))
+        s['K2'] = 430
+        s['F2'] = '条'
+        s['C2'] = '女士内裤'
+        self.assertFalse(any(i['level'] in ('error', 'pending') for i in self.check()['issues']))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -13,6 +13,8 @@ import openpyxl
 HEADERS = ['货号', '条形码', '品名', '图片', '工艺', '单价（元/打）', '装箱数',
            '件数', '总价格', '总数量', '立方', '长', '宽', '高', '总立方', '供应商',
            '备     注', '计价单位']
+SCHEMA = json.loads((Path(__file__).parents[1] / 'references/template-schema.json').read_text())
+STANDARD_HEADERS = [c['header'] for c in SCHEMA['columns']]
 NUMERIC = {6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 REQUIRED = {1, 3, 6, 7, 8, 10, 15, 16, 18}
 FEES = {'海运费', '内陆费', '卸柜费', '清关杂费', 'IVA'}
@@ -50,16 +52,21 @@ def validate(path):
     rows = 0
     unit_totals = {}
     loose_totals = {}
+    standard = False
     if 'data' in wb:
         ws = wb['data']
         headers = [c.value for c in ws[1]]
         expected_headers = HEADERS + (['散件数'] if len(headers) == 19 else [])
         if len(headers) in (18, 19) and headers[5] in ('单价（元）', '单价（元/条）'):
             expected_headers[5] = headers[5]
-        if headers != expected_headers:
-            issue('error', 'data', '1', f'列顺序或标题错误；应为 {HEADERS}')
+        standard = headers == STANDARD_HEADERS
+        mapping = {c['legacyColumn']: i + 1 for i, c in enumerate(SCHEMA['columns'])} if standard else {i: i for i in range(1, len(headers) + 1)}
+        def dc(row, column):
+            return ws.cell(row, mapping[column])
+        if not standard and headers != expected_headers:
+            issue('error', 'data', '1', f'列顺序或标题错误；新表应为 {STANDARD_HEADERS}；旧表仅兼容既定18/19列')
         else:
-            if len(headers) == 19:
+            if 19 in mapping:
                 totals[19] = []
             ends = [r for r in range(2, ws.max_row + 1) if ws.cell(r, 1).value == 'DATA_END']
             if len(ends) != 1:
@@ -70,13 +77,13 @@ def validate(path):
                     issue('error', 'data', 'A2', '没有商品明细')
                 for r in range(2, end):
                     rows += 1
-                    vals = {}
-                    for c in range(1, len(headers) + 1):
-                        cell = ws.cell(r, c)
+                    vals = {c: None for c in range(1, 20)}
+                    for c in mapping:
+                        cell = dc(r, c)
                         v = vals[c] = read(cell)
                         if v in (None, ''):
-                            if c in REQUIRED or c == 2:
-                                issue('pending', 'data', cell.coordinate, f'{headers[c-1]}缺失，需来源或明确例外')
+                            if c in REQUIRED or c == 2 or (standard and c == 19):
+                                issue('pending', 'data', cell.coordinate, f'{headers[mapping[c]-1]}缺失，需来源或明确例外')
                             continue
                         if c in NUMERIC or c == 19:
                             if not number(v) or (v < 0 if c in (8, 19) else v <= 0):
@@ -96,18 +103,18 @@ def validate(path):
                         unit_totals.setdefault(unit, []).append(vals[10])
                         loose_totals.setdefault(unit, []).append(loose)
                     if (headers[5] == '单价（元/打）' and unit != '打') or (headers[5] == '单价（元/条）' and unit != '条'):
-                        issue('error', 'data', f'R{r}', '计价单位与单价标题冲突')
+                        issue('error', 'data', dc(r, 18).coordinate, '计价单位与单价标题冲突')
                     for target, factors, label in [(10, (7, 8), '数量'), (9, (6, 10), '货值'), (15, (11, 8), '体积')]:
                         if target == 15 and loose:
-                            issue('review', 'data', f'O{r}', '含散件，须对照源行核对整件与尾包体积之和')
+                            issue('review', 'data', dc(r, 15).coordinate, '含散件，须对照源行核对整件与尾包体积之和')
                             continue
                         if all(number(vals[c]) for c in factors):
                             expected = math.prod(vals[c] for c in factors)
                             if target == 10 and number(loose):
                                 expected += loose
-                            compare('data', ws.cell(r, target).coordinate, vals[target], expected, label, 'review' if target == 15 else 'error')
-                            if vals[target] in (None, '') and ws.cell(r, target).data_type != 'f':
-                                issue('pending', 'data', ws.cell(r, target).coordinate, f'缺少可核对的{label}')
+                            compare('data', dc(r, target).coordinate, vals[target], expected, label, 'review' if target == 15 else 'error')
+                            if vals[target] in (None, '') and dc(r, target).data_type != 'f':
+                                issue('pending', 'data', dc(r, target).coordinate, f'缺少可核对的{label}')
                     dims = [vals[c] for c in (12, 13, 14)]
                     if any(v is not None for v in dims):
                         if all(number(v) for v in dims):
@@ -124,11 +131,11 @@ def validate(path):
                     issue('error', 'data', f'A{end+1}', 'DATA_END 后只允许一行合计及分单位数量合计')
                 else:
                     for c, values in totals.items():
-                        if c in (10, 19) and len(unit_totals) > 1:
-                            if read(ws.cell(main[0], c)) not in (None, ''):
-                                issue('error', 'data', ws.cell(main[0], c).coordinate, '不同单位数量不能相加')
+                        if c in (10, 19) and (len(unit_totals) > 1 or by_unit):
+                            if len(unit_totals) > 1 and read(dc(main[0], c)) not in (None, ''):
+                                issue('error', 'data', dc(main[0], c).coordinate, '不同单位数量不能相加')
                             continue
-                        cell = ws.cell(main[0], c)
+                        cell = dc(main[0], c)
                         v = read(cell)
                         if all(number(x) for x in values):
                             if not number(v):
@@ -137,18 +144,18 @@ def validate(path):
                                 compare('data', cell.coordinate, v, sum(values), '货值' if c == 9 else '合计')
                     if len(unit_totals) > 1 or by_unit:
                         for unit, values in unit_totals.items():
-                            matches = [r for r in by_unit if ws.cell(r, 18).value == unit]
+                            matches = [r for r in by_unit if dc(r, 18).value == unit]
                             if len(matches) != 1:
                                 issue('error', 'data', f'A{end+1}', f'{unit}数量必须单独合计一次')
                             elif all(number(x) for x in values):
-                                cell = ws.cell(matches[0], 10)
+                                cell = dc(matches[0], 10)
                                 value = read(cell)
                                 if not number(value):
                                     issue('pending', 'data', cell.coordinate, '分单位合计缺少数字')
                                 else:
                                     compare('data', cell.coordinate, value, sum(values), '数量合计')
                             if len(matches) == 1 and 19 in totals:
-                                cell = ws.cell(matches[0], 19)
+                                cell = dc(matches[0], 19)
                                 value = read(cell)
                                 loose_values = loose_totals[unit]
                                 if all(number(x) for x in loose_values):
@@ -174,7 +181,7 @@ def validate(path):
             keys.add(key)
             v = read(cell)
             if v in (None, ''):
-                if key in {'货柜号', '海运费', '内陆费'}:
+                if key in {'货柜号', '海运费', '内陆费', '发柜日期', 'ETA'}:
                     issue('pending', 'config', cell.coordinate, f'{key}待补')
             elif key in FEES | RATES:
                 if not number(v) or v < 0 or (key in RATES and v == 0):
@@ -182,28 +189,28 @@ def validate(path):
             elif key == '货柜号':
                 if not isinstance(v, str) or not re.fullmatch(r'[A-Z]{4}\d{7}', v):
                     issue('error', 'config', cell.coordinate, '柜号须为四个大写字母加七位数字')
-            elif key == 'ETA':
+            elif key in {'ETA', '发柜日期'}:
                 try:
                     if not isinstance(v, (dt.date, dt.datetime)):
                         dt.date.fromisoformat(v)
                 except (TypeError, ValueError):
-                    issue('error', 'config', cell.coordinate, 'ETA 须为日期或 YYYY-MM-DD')
+                    issue('error', 'config', cell.coordinate, f'{key} 须为日期或 YYYY-MM-DD')
             else:
                 issue('review', 'config', cell.coordinate, f'参数 {key} 无自动业务规则，须 AI 对照来源核对')
             note = read(ws.cell(r, note_column))
             if note is not None and not isinstance(note, str):
                 issue('error', 'config', ws.cell(r, note_column).coordinate, '说明必须为文本')
-        for key in {'货柜号', '海运费', '内陆费'} - keys:
+        for key in ({'货柜号', '海运费', '内陆费', '发柜日期', 'ETA'} if standard else {'货柜号', '海运费', '内陆费'}) - keys:
             issue('pending', 'config', 'A', f'缺少参数 {key}')
     result = dict(workbook=str(path.resolve()), sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
-                  rows=rows, columns=[c.value for c in wb['data'][1]] if 'data' in wb else [], issues=issues,
+                  rows=rows, template_version=2 if standard else 1, columns=[c.value for c in wb['data'][1]] if 'data' in wb else [], issues=issues,
                   source_review=dict(status='NOT_PERFORMED', checks=[
                       '对照原件逐行确认柜号、商品、供应商和主条码身份',
                       '核对源行覆盖：遗漏、重复、尾包合并及拆分均有对应关系',
                       '确认每行源单位和销售单位，独立核对数量与单价转换、货值守恒',
                       '核对尺寸、未压缩体积、实际装柜体积及尾包分摊依据',
                       '核对费用范围、币种、承担方、汇率来源和 ETA 查询日期',
-                      '检查图片与商品对应、工艺、备注和排版']),
+                      '检查图片与商品对应及排版']),
                   status='ERROR' if any(i['level'] == 'error' for i in issues) else 'PENDING' if any(i['level'] == 'pending' for i in issues) else 'REVIEW' if issues else 'PASS',
                   scope='表内列契约与算术；原件归属、单价依据、条码身份、图片、压缩体积和排版须独立核对')
     wb.close()
