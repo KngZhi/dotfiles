@@ -1,6 +1,17 @@
 ---
 name: container-intake
 description: 在成本计算前按货柜整理微信附件、出货明细和费用凭证，套用标准模板、按商品销售单位整理并列出待补项。
+hooks:
+  PostToolUse:
+    - hooks:
+        - type: command
+          command: 'python3 "$HOME/.claude/skills/container-intake/scripts/auto_verify.py" hook'
+          timeout: 60
+  Stop:
+    - hooks:
+        - type: command
+          command: 'python3 "$HOME/.claude/skills/container-intake/scripts/auto_verify.py" hook'
+          timeout: 60
 ---
 
 # 货柜材料整理
@@ -22,6 +33,29 @@ description: 在成本计算前按货柜整理微信附件、出货明细和费�
 
 使用现有本地附件和已授权的只读接口；查文件不需要关闭 SIP、提取微信密钥
 或发送消息。查询船期时读 [references/tracking.md](references/tracking.md)。
+
+## 启用本次自动验证
+
+开始写工作簿前，先登记本次目标文件（可以尚不存在），不要登记供应商原件：
+
+```bash
+# Codex：从 CODEX_THREAD_ID 取得当前会话
+python3 scripts/auto_verify.py register '/绝对路径/柜号.xlsx'
+# Claude Code：这里的 ID 由技能内容替换，不是 shell 环境变量
+python3 scripts/auto_verify.py register '/绝对路径/柜号.xlsx' --session '${CLAUDE_SESSION_ID}'
+```
+
+只执行当前宿主对应的一条。命令从技能目录执行。登记成功后，每次工具完成都会
+检查本会话登记的文件；内容变化便自动运行验证，保存同目录 `.validation.json` 并
+反馈给 AI。结束交付前仍检查报告，不能把登记成功当验证成功。
+Claude Code 使用本技能 frontmatter hook；Codex 由 `shared/build.sh` 安装原生事件转接。
+未登记会话直接返回，不扫描目录。结束本次整理、完成最后验证后运行
+`auto_verify.py unregister`（Claude 加同一 `--session`）；也可继续保留以便本会话修改。
+登记最长保留7天，每会话最多32份、总共128个会话。跨会话续做须重新登记。
+
+自动化保证从登记之后开始；AI 仍必须执行登记。宿主未加载 hook、直接在 Excel
+保存且没有后续工具事件、或目标未登记时不会立即触发，使用下方手动验证补足。
+Hook 只反馈验证结果，不强制资料齐全、不替代 AI 来源核对，也不阻止用户结束整理稿。
 
 ## 整理标准表
 
