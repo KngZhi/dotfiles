@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only column validation; no formula calculation or source inference."""
+"""Read-only column validation of a container table (xlsx file or loaded grid); no formula calculation or source inference."""
 import argparse
 import datetime as dt
 import hashlib
@@ -7,8 +7,10 @@ import json
 import math
 from pathlib import Path
 import re
+import sys
 
-import openpyxl
+sys.path.insert(0, str(Path(__file__).parent))
+from grid import load_xlsx  # noqa: E402
 
 HEADERS = ['货号', '条形码', '品名', '图片', '工艺', '单价（元/打）', '装箱数',
            '件数', '总价格', '总数量', '立方', '长', '宽', '高', '总立方', '供应商',
@@ -19,43 +21,46 @@ NUMERIC = {6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 REQUIRED = {1, 3, 6, 7, 8, 10, 15, 16, 18}
 FEES = {'海运费', '内陆费', '卸柜费', '清关杂费', 'IVA'}
 RATES = {'CNY-CLP', 'USD-CLP', 'USD-CNY'}
+EXIT_CODES = {'PASS': 0, 'ERROR': 1, 'PENDING': 2, 'REVIEW': 3}
 
 
 def number(v):
     return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
 
 
-def validate(path):
-    path = Path(path)
-    wb = openpyxl.load_workbook(path, data_only=False)
-    cache = openpyxl.load_workbook(path, data_only=True)
+def strip_trailing(values):
+    values = list(values)
+    while values and values[-1] is None:
+        values.pop()
+    return values
+
+
+def validate_book(book, source, sha256=None):
     issues = []
     def issue(level, sheet, cell, message):
         issues.append(dict(level=level, sheet=sheet, cell=cell, message=message))
     def read(cell):
-        if cell.data_type == 'e':
-            issue('error', cell.parent.title, cell.coordinate, 'Excel 错误值')
+        if cell.error:
+            issue('error', cell.sheet, cell.coordinate, '公式错误值')
             return None
-        if cell.data_type == 'f':
-            v = cache[cell.parent.title][cell.coordinate]
-            if v.value is None or v.data_type == 'e':
-                issue('pending', cell.parent.title, cell.coordinate, '公式无有效缓存；须重算并保存后复验')
-                return None
-            return v.value
+        if cell.formula and cell.stale:
+            issue('pending', cell.sheet, cell.coordinate, '公式无有效缓存；须重算并保存后复验')
+            return None
         return cell.value
     def compare(s, coordinate, actual, expected, label, level='error'):
         if number(actual) and not math.isclose(actual, expected, rel_tol=1e-6, abs_tol=0.01 if label == '货值' else 1e-6):
             issue(level, s, coordinate, f'{label}不符：实际 {actual}，参照值 {expected}' + ('；须对照原件判断口径，不自动改值' if level == 'review' else ''))
-    if set(wb.sheetnames) != {'data', 'config'}:
+    if set(book.sheets) != {'data', 'config'}:
         issue('error', '', '', '工作簿必须且只能包含 data、config')
     totals = {c: [] for c in (8, 9, 10, 15)}
     rows = 0
     unit_totals = {}
     loose_totals = {}
     standard = False
-    if 'data' in wb:
-        ws = wb['data']
-        headers = [c.value for c in ws[1]]
+    headers = []
+    if 'data' in book:
+        ws = book['data']
+        headers = strip_trailing(ws.row_values(1))
         expected_headers = HEADERS + (['散件数'] if len(headers) == 19 else [])
         if len(headers) in (18, 19) and headers[5] in ('单价（元）', '单价（元/条）'):
             expected_headers[5] = headers[5]
@@ -113,7 +118,7 @@ def validate(path):
                             if target == 10 and number(loose):
                                 expected += loose
                             compare('data', dc(r, target).coordinate, vals[target], expected, label, 'review' if target == 15 else 'error')
-                            if vals[target] in (None, '') and dc(r, target).data_type != 'f':
+                            if vals[target] in (None, '') and not dc(r, target).formula:
                                 issue('pending', 'data', dc(r, target).coordinate, f'缺少可核对的{label}')
                     dims = [vals[c] for c in (12, 13, 14)]
                     if any(v is not None for v in dims):
@@ -163,17 +168,15 @@ def validate(path):
                                         issue('pending', 'data', cell.coordinate, '分单位散件合计缺少数字')
                                     else:
                                         compare('data', cell.coordinate, value, sum(loose_values), '散件合计')
-    if 'config' in wb:
-        ws = wb['config']
-        config_headers = [c.value for c in ws[1]]
-        while config_headers and config_headers[-1] is None:
-            config_headers.pop()
+    if 'config' in book:
+        ws = book['config']
+        config_headers = strip_trailing(ws.row_values(1))
         if config_headers != ['参数', '值', '说明']:
             issue('review', 'config', '1', '模板布局偏差：应为 参数 / 值 / 说明；检查多余空列及说明位置，不代表费用数值错误')
         note_column = config_headers.index('说明') + 1 if '说明' in config_headers else 3
         keys = set()
         for r in range(2, ws.max_row + 1):
-            if all(c.value is None for c in ws[r]):
+            if ws.blank_row(r):
                 continue
             key, cell = ws.cell(r, 1).value, ws.cell(r, 2)
             if not isinstance(key, str) or key in keys:
@@ -202,20 +205,22 @@ def validate(path):
                 issue('error', 'config', ws.cell(r, note_column).coordinate, '说明必须为文本')
         for key in ({'货柜号', '海运费', '内陆费', '发柜日期', 'ETA'} if standard else {'货柜号', '海运费', '内陆费'}) - keys:
             issue('pending', 'config', 'A', f'缺少参数 {key}')
-    result = dict(workbook=str(path.resolve()), sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
-                  rows=rows, template_version=2 if standard else 1, columns=[c.value for c in wb['data'][1]] if 'data' in wb else [], issues=issues,
-                  source_review=dict(status='NOT_PERFORMED', checks=[
-                      '对照原件逐行确认柜号、商品、供应商和主条码身份',
-                      '核对源行覆盖：遗漏、重复、尾包合并及拆分均有对应关系',
-                      '确认每行源单位和销售单位，独立核对数量与单价转换、货值守恒',
-                      '核对尺寸、未压缩体积、实际装柜体积及尾包分摊依据',
-                      '核对费用范围、币种、承担方、汇率来源和 ETA 查询日期',
-                      '检查图片与商品对应及排版']),
-                  status='ERROR' if any(i['level'] == 'error' for i in issues) else 'PENDING' if any(i['level'] == 'pending' for i in issues) else 'REVIEW' if issues else 'PASS',
-                  scope='表内列契约与算术；原件归属、单价依据、条码身份、图片、压缩体积和排版须独立核对')
-    wb.close()
-    cache.close()
-    return result
+    return dict(workbook=source, sha256=sha256,
+                rows=rows, template_version=2 if standard else 1, columns=headers, issues=issues,
+                source_review=dict(status='NOT_PERFORMED', checks=[
+                    '对照原件逐行确认柜号、商品、供应商和主条码身份',
+                    '核对源行覆盖：遗漏、重复、尾包合并及拆分均有对应关系',
+                    '确认每行源单位和销售单位，独立核对数量与单价转换、货值守恒',
+                    '核对尺寸、未压缩体积、实际装柜体积及尾包分摊依据',
+                    '核对费用范围、币种、承担方、汇率来源和 ETA 查询日期',
+                    '检查图片与商品对应及排版']),
+                status='ERROR' if any(i['level'] == 'error' for i in issues) else 'PENDING' if any(i['level'] == 'pending' for i in issues) else 'REVIEW' if issues else 'PASS',
+                scope='表内列契约与算术；原件归属、单价依据、条码身份、图片、压缩体积和排版须独立核对')
+
+
+def validate(path):
+    path = Path(path)
+    return validate_book(load_xlsx(path), str(path.resolve()), hashlib.sha256(path.read_bytes()).hexdigest())
 
 
 def main():
@@ -228,7 +233,7 @@ def main():
     result = validate(args.workbook)
     args.report.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     print(f"{result['status']}: {result['rows']} rows; {len(result['issues'])} issues; {args.report}")
-    return {'PASS': 0, 'ERROR': 1, 'PENDING': 2, 'REVIEW': 3}[result['status']]
+    return EXIT_CODES[result['status']]
 
 
 if __name__ == '__main__':
