@@ -216,6 +216,3 @@ for want in "$DOTFILES_DIR/shared/skills" "$PACKS_DEPLOY"; do
     grep -qF "$want" "$DEPLOY_HOME/.hermes/config.yaml" 2>/dev/null ||
         echo "Hermes: $want is not listed in skills.external_dirs"
 done
-
-# Install the session-gated container-intake hook without replacing user hooks.
-python3 "$DOTFILES_DIR/shared/skills/container-intake/scripts/install_hook.py" --home "$DEPLOY_HOME"

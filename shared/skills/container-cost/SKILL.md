@@ -5,7 +5,7 @@ description: 对已整理并核对完成的标准货柜表配置费用、计算�
 
 # 货柜成本计算
 
-接收 `container-intake` 整理完成的标准 `data/config` 表，配置费用并运行现有成本引擎。
+接收 `container-intake` 用 `sheets.py export` 从 Google 表格导出的标准 `data/config` xlsx，配置费用并运行现有成本引擎。
 先读工作簿及材料索引，确认必填项和计价单位；发现归属、整柜明细、采购价或费用范围
 未核清时，交回 [container-intake](../container-intake/SKILL.md) 完成缺失部分。
 不能因为已有 Excel 就视为可以计算；整理材料或计算成本也不等于授权创建和提交采购单。

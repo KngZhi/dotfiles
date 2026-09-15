@@ -1,29 +1,18 @@
 ---
 name: container-intake
-description: 在成本计算前按货柜整理微信附件、出货明细和费用凭证，套用标准模板、按商品销售单位整理并列出待补项。
-hooks:
-  PostToolUse:
-    - hooks:
-        - type: command
-          command: 'python3 "$HOME/.claude/skills/container-intake/scripts/auto_verify.py" hook'
-          timeout: 60
-  Stop:
-    - hooks:
-        - type: command
-          command: 'python3 "$HOME/.claude/skills/container-intake/scripts/auto_verify.py" hook'
-          timeout: 60
+description: 在成本计算前按货柜整理微信附件、出货明细和费用凭证，写入 Google 表格标准工作表、按商品销售单位整理并把问题标到单元格。
 ---
 
 # 货柜材料整理
 
 把分散的货柜材料整理成可核对的标准输入。用于找附件、按柜归档、整理出货表、
-补材料和核对船期；已整理好的表需要计算成本时，才交给 `container-cost`。
+补材料和核对船期；已整理好的表需要计算成本时，才导出交给 `container-cost`。
 整理稿、成本结果和 K2046 已入库是三个不同阶段。
 
 ## 收集与归属
 
 - 微信已下载附件：`~/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/chenjunwei590505_80b3/msg/file`。
-- 材料和未完成整理稿：`~/Library/CloudStorage/OneDrive-Personal/00_待整理货柜/<材料日期>_<供应商>_<柜号>/`。
+- 材料和材料索引：`~/Library/CloudStorage/OneDrive-Personal/00_待整理货柜/<材料日期>_<供应商>_<柜号>/`。
 - 优先复用已有目录、原件和索引，复制新增附件并保留来源。仅查用户指定范围；
   用户只要 K2046 缺录柜时，先只读核对对应采购记录，再收集这些柜的材料。
 
@@ -34,82 +23,66 @@ hooks:
 使用现有本地附件和已授权的只读接口；查文件不需要关闭 SIP、提取微信密钥
 或发送消息。查询船期时读 [references/tracking.md](references/tracking.md)。
 
-## 启用本次自动验证
+## 工作表格：每柜一份 Google 表格
 
-开始写工作簿前，先登记本次目标文件（可以尚不存在），不要登记供应商原件：
+整理稿是 Google 表格，不是本地 xlsx。脚本写入后用户在浏览器里立刻看到，
+用户手工修改后脚本直接读回，没有旧窗口缓冲和重新打开的问题。
+命令一律从本技能目录用 `uv run scripts/sheets.py ...` 执行；
+一次性授权和全部命令见 [references/google-sheets.md](references/google-sheets.md)。
 
 ```bash
-# Codex：从 CODEX_THREAD_ID 取得当前会话
-python3 scripts/auto_verify.py register '/绝对路径/柜号.xlsx'
-# Claude Code：这里的 ID 由技能内容替换，不是 shell 环境变量
-python3 scripts/auto_verify.py register '/绝对路径/柜号.xlsx' --session '${CLAUDE_SESSION_ID}'
+uv run scripts/sheets.py create <柜号> [--from <13列xlsx>]   # 新建，打印链接
+uv run scripts/sheets.py dump <柜号>                          # 读明细、config、批注（JSON）
+uv run scripts/sheets.py write <柜号> rows.json               # 重写明细并自动验证
+uv run scripts/sheets.py set <柜号> 'data!G5=12.5' 'config.海运费=2000'
+uv run scripts/sheets.py mark <柜号> 'data!A53' '43打混合包需拆分' --blocking
+uv run scripts/sheets.py validate <柜号>
+uv run scripts/sheets.py export <柜号> <目标.xlsx>            # 交接时才导出
 ```
 
-只执行当前宿主对应的一条。命令从技能目录执行。登记成功后，每次工具完成都会
-检查本会话登记的文件；内容变化便自动运行验证，给具体问题单元格写入浅红底、深红字和问题批注，保存同目录 `.validation.json` 并
-反馈给 AI。结束交付前仍检查报告，不能把登记成功当验证成功。
-首次标注保留 `.before-annotations.xlsx` 备份，`.annotations.json` 跟踪脚本标记用于修复后的清除。
-正常值、公式缓存和原有用户批注保留；脚本不修改业务数据。外部WPS已打开的窗口须关闭后重新打开查看，避免旧缓冲覆盖标注。
-自动检查识别不到的业务问题，AI核实后写同目录 `<柜号>.review.json`：
-`{"issues":[{"sheet":"data","cell":"A53","expected_value":"SC109/C109","blocking":true,"message":"43打混合包需确认各货号数量，拆分核对后再导入"}]}`。
-hook会合并这些问题并标注；单元格值与定位不一致时停止标注并要求更新审查记录，不按斜杠猜测混合包。
-解决来源问题后更新该审查文件；仅改Excel值不会自动证明来源问题已解决。
-Claude Code 使用本技能 frontmatter hook；Codex 由 `shared/build.sh` 安装原生事件转接。
-Codex 新增或变更 hook 后须在原生 `/hooks` 菜单信任确切定义；未信任会跳过执行。
-不要用绕过信任参数代替这一步。安装配置不代表已信任或已执行。
-未登记会话直接返回，不扫描目录。结束本次整理、完成最后验证后运行
-`auto_verify.py unregister`（Claude 加同一 `--session`）；也可继续保留以便本会话修改。
-登记最长保留7天，每会话最多32份、总共128个会话。跨会话续做须重新登记。
-
-自动化保证从登记之后开始；AI 仍必须执行登记。宿主未加载 hook、直接在 Excel
-保存且没有后续工具事件、或目标未登记时不会立即触发，使用下方手动验证补足。
-Hook 只反馈验证结果，不强制资料齐全、不替代 AI 来源核对，也不阻止用户结束整理稿。
+新建后把链接记入 `~/repo/org/containers.org` 该柜的 `SHEET` 属性和材料索引。
+以柜号为表格名，只通过脚本新建；同一柜已有表格时继续用，不重复新建。
+旧的本地整理稿用 `create --from` 迁移一次后不再修改 xlsx 版本。
+不把整理稿放进正式成本输入目录；`export` 只在交接时执行。
 
 ## 整理标准表
 
-读 [references/workbook.md](references/workbook.md)，使用本技能 `assets/模板.xlsx`，按唯一列契约整理每柜一份工作表；不能沿用旧表临时增减字段。
+读 [references/workbook.md](references/workbook.md)，按唯一列契约整理每柜一份 data/config；不能临时增减字段。
 单价、装箱数和总数量按商品实际销售及库存单位保持一致：袜子按打，女士内裤按条，不能统一换成打。
 其他商品核对已确认业务口径和 K2046 档案，不从同柜其他商品推定单位。
-保持原模板样式，不另加配色；每行数量与计价单位一致。尾货按标准规格分为整件与散件，规则见工作簿契约。
-发现错误、缺项或未决差异时，按工作簿契约将具体问题单元格标红，并加单元格批注说明问题和处理要求；
-阻断项明确注明「阻断导入」。正常单元格保持黑白，不能仅交付外部待补清单。
+保持黑白样式，不另加配色；每行数量与计价单位一致。尾货按标准规格分为整件与散件，规则见工作簿契约。
+发现错误、缺项或未决差异时，用 `mark` 把具体单元格标红并写批注，说明问题和处理要求；
+阻断项加 `--blocking`。正常单元格保持黑白，不能仅交付外部待补清单。
 
 只做归属、单位和数据核对，不运行成本计算、创建商品或采购单。
 可以复用 `container-cost` 的只读校验和纯单位转换函数；这不等于启动成本流程。
 
-## 保存后验证（每次必做）
+## 验证（每次写入自动执行）
 
-每次生成或修改工作簿后，运行 [逐列验证脚本](scripts/validate_workbook.py)：
+`write` 和 `set` 完成后自动运行表内验证，把问题写到对应单元格的浅红底和批注，
+并在终端打印状态；也可随时手动 `validate`。验证检查同一 schema 定义的列顺序、值类型、
+必填项、商品计价单位、EAN-13、数量/货值/体积关系、合计、DATA_END，以及 config 参数类型。
+返回码：0 表内规则通过；1 有确定错误；2 有待补项；3 有需要 AI 对照来源判断的差异。
+修复后重新验证；缺资料可以停在整理中，但材料索引必须列出待补项，不标成「验证通过」。
+导出的 xlsx 或旧本地表用 `python3 scripts/validate_workbook.py <文件.xlsx> --report <报告.json>` 检查。
 
-```bash
-python3 scripts/validate_workbook.py '<柜号>.xlsx' --report '<柜号>.validation.json'
-```
-
-命令从本技能目录执行；依赖本地 `openpyxl`。只读工作簿，报告写入派生文件目录。
-新模板固定13列，检查同一schema定义的列顺序、值类型、必填项、商品计价单位、EAN-13、数量/货值/体积关系、
-合计、DATA_END，以及 config 参数类型和公式缓存。定位结果包含 sheet 和单元格。
-返回码：0 已实现的表内规则通过；1 有确定错误；2 有待补项或缺公式缓存；
-3 有需要 AI 对照来源判断的差异（如体积口径、布局偏差）。修复后重新保存、重跑；
-缺资料可交付整理稿，但必须在材料索引列出报告中的缺项，不标成「验证通过」。
-
-报告的 `status` 只描述表内检查，`source_review` 始终为 `NOT_PERFORMED`：
+验证 `status` 只描述表内检查，`source_review` 始终为 `NOT_PERFORMED`：
 脚本没有执行来源判断，不会因算术通过而宣布可以交接。AI 在材料索引另记来源核对结果，
-不要改写脚本报告或为消除差异而自动修改原值。
+不为消除差异而自动修改原值。
 
 ### AI 与脚本的分工
 
 - AI 先直接读取原件，确定同柜归属、源列含义、源/目标单位、标准包装、尾包对应、
   费用范围及采用哪个冲突来源；记录依据和未决项。不能从生成表反推这些答案。
-- 脚本执行已确定的转换与精确比较：逐行数量和金额、按单位合计、漏行/重复、
-  保存前数据与保存后单元格一致性。当前脚本只实现表内检查；源行到目标行的比较
-  由本次整理使用的脚本另行执行并保留结果，不能声称本验证器已做过。
+- 脚本执行已确定的转换与精确比较：逐行数量和金额、按单位合计、漏行/重复。
+  源行到目标行的比较由本次整理使用的脚本另行执行并保留结果，不能声称验证器已做过。
 - AI 回到原件审查差异、图片和排版，逐项解释合理例外；无依据的继续待补。
   算术成立不证明商品、单位或价格正确。整体就绪由两类证据共同支持。
 
 脚本不证明原件真实或归属正确。另按 [逐列核对规则](references/workbook.md#逐列验收)
 对照原件逐列核对，特别是身份、采购价格、单位换算、图片和压缩体积；记录来源位置。
 只有表内检查和来源核对均完成，才可声称逐列核对完成。系统无主条码等已确认例外
-记录证据，保留脚本待补状态，不伪造值来通过检查。最后查看排版，并按工作簿契约关闭旧窗口、用 `open` 打开修正版，让用户直接查看。
+记录证据，保留待补状态，不伪造值来通过检查。
 
 ## 完成和交接
 
@@ -119,7 +92,7 @@ python3 scripts/validate_workbook.py '<柜号>.xlsx' --report '<柜号>.validati
 猜比例拆分，或跳过该行导入其余行来声称整柜完成。只有确认是一个真实独立货号时，
 才按该商品处理；不能仅凭名称含斜杠判定混合包。此项未解决前不得交接为可计算成本或可导入。
 
-每柜复用 `00_材料索引与待补.md`，记录原件位置、行号/单元格、计价单位依据、
+每柜复用 `00_材料索引与待补.md`，记录表格链接、原件位置、行号/单元格、计价单位依据、
 数量与货值核对结果、费用范围、船期，以及真正需要补充的资料。
 索引明确标记「整理中」或「可计算成本」，不把默认费用都列成必须补账单。
 
@@ -129,11 +102,12 @@ python3 scripts/validate_workbook.py '<柜号>.xlsx' --report '<柜号>.validati
 - 真实海运费已取得；内陆费有明确金额或承担方，分票与整柜范围已核清。
   其余参数是否可用默认值，以 [成本参数规则](../container-cost/references/costing.md) 为准。
 
-资料暂缺不妨碍完成本次整理。将整理稿留在该柜 `02_派生文件/<柜号>.xlsx`，
-列出缺项并更新 `~/repo/org/containers.org` 的 `SUPPLIER`、`XLSX` 和材料 checklist。
-未就绪的表不进入正式成本输入目录，不生成看似可入库的成本结果。
+资料暂缺不妨碍完成本次整理。整理稿留在 Google 表格，列出缺项并更新
+`~/repo/org/containers.org` 的 `SUPPLIER`、`SHEET` 和材料 checklist。
+未就绪的表不导出到正式成本输入目录，不生成看似可入库的成本结果。
 
-材料就绪且用户已要求继续计算时，才把标准表交到
-`~/Library/CloudStorage/OneDrive-Personal/source_files/containers/(<材料日期>)<柜号>.xlsx`，
-调用 `container-cost`。仅要求整理时，报告已就绪即可。已有授权不重复询问，
-资料缺失也不能当成已获答案。不要修改 `PO_IDS` 或将材料完成标记成入库完成。
+材料就绪且用户已要求继续计算时，才导出标准表：
+`uv run scripts/sheets.py export <柜号> '~/Library/CloudStorage/OneDrive-Personal/source_files/containers/(<材料日期>)<柜号>.xlsx'`，
+把路径写入 `XLSX` 属性，调用 `container-cost`。导出前表格里不应残留红标；
+导出后表格改动不会自动同步，须重新导出。仅要求整理时，报告已就绪即可。
+已有授权不重复询问，资料缺失也不能当成已获答案。不要修改 `PO_IDS` 或将材料完成标记成入库完成。
