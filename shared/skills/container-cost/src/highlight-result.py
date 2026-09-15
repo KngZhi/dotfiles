@@ -48,7 +48,8 @@ def highlight(path):
         dxfs.append(dxf)
     dxfs.set('count', str(len(dxfs)))
     rules = [(f'F2:J{last}', 'OR(LEN(TRIM(F2&""))=0,IFERROR(VALUE(F2)=0,FALSE))'),
-             (f'Q2:R{last}', 'LEN(TRIM(Q2&""))=0')]
+             (f'Q2:R{last}', 'LEN(TRIM(Q2&""))=0'),
+             (f'G2:J{last}', 'IFERROR(AND(VALUE(G2)>0,VALUE($F2)>0,(VALUE(G2)-VALUE($F2))/VALUE(G2)<0.25),FALSE)')]
     priority = max([int(r.get('priority', '0')) for r in root.iter(tag('cfRule'))] or [0])
     for area, formula in rules:
         if any(c.get('sqref') == area and any(f.text == formula for f in c.iter(tag('formula')))

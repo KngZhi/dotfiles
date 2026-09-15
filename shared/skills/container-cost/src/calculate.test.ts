@@ -52,9 +52,10 @@ with zipfile.ZipFile(sys.argv[1]) as z:
  styles=E.fromstring(z.read('xl/styles.xml'))
 n={'x':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
 rules=s.findall('x:conditionalFormatting',n)
-assert [r.get('sqref') for r in rules]==['F2:J2','Q2:R2']
+assert [r.get('sqref') for r in rules]==['F2:J2','Q2:R2','G2:J2']
 assert 'VALUE(F2)=0' in rules[0].find('x:cfRule/x:formula',n).text
 assert rules[1].find('x:cfRule/x:formula',n).text=='LEN(TRIM(Q2&""))=0'
+assert rules[2].find('x:cfRule/x:formula',n).text=='IFERROR(AND(VALUE(G2)>0,VALUE($F2)>0,(VALUE(G2)-VALUE($F2))/VALUE(G2)<0.25),FALSE)'
 for r in rules:
  dxf=styles.find('x:dxfs',n)[int(r.find('x:cfRule',n).get('dxfId'))]
  assert dxf.find('x:fill/x:patternFill/x:fgColor',n).get('rgb')=='FFFFC7CE'
