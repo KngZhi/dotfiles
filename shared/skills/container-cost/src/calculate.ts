@@ -34,6 +34,7 @@ export interface ContainerDataRow {
   装箱数: number;
   件数: number;
   总数量: number;
+  散件数?: number;
   总立方: number | null;
   立方?: number;
   供应商: string;
@@ -174,6 +175,8 @@ export function loadDataSheet(workbook: XLSX.WorkBook): ContainerDataRow[] {
       装箱数: asNumber(values.装箱数, '装箱数', excelRow) as number,
       件数: asNumber(values.件数, '件数', excelRow) as number,
       总数量: asNumber(values.总数量, '总数量', excelRow) as number,
+      ...(values.散件数 === undefined || values.散件数 === '' ? {}
+        : { 散件数: asNumber(values.散件数, '散件数', excelRow) as number }),
       总立方: asNumber(values.总立方, '总立方', excelRow, true),
       供应商: asText(values.供应商),
       计价单位: asPricingUnit(values.计价单位, excelRow),
@@ -203,11 +206,13 @@ export function normalizePricingUnits(dataRows: ContainerDataRow[]): ContainerDa
     if (row.计价单位 !== '双') return { ...row };
     requireDozenDivisible(row.装箱数, '装箱数', row.货号);
     requireDozenDivisible(row.总数量, '总数量', row.货号);
+    if (row.散件数 !== undefined) requireDozenDivisible(row.散件数, '总数量', row.货号);
     return {
       ...row,
       单价: Number((row.单价 * 12).toFixed(10)),
       装箱数: row.装箱数 / 12,
       总数量: row.总数量 / 12,
+      ...(row.散件数 === undefined ? {} : { 散件数: row.散件数 / 12 }),
       计价单位: '打',
     };
   });
@@ -332,6 +337,7 @@ export async function calculateCosts(
       packingBigBag: product?.packingBigBag,
       packingBag: product?.packingBag,
       件数: row.件数,
+      散件数: row.散件数 ?? 0,
       仓库: 'lazon',
       category1: product?.categoryParentName,
       category2: product?.categoryName,

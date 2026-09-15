@@ -75,6 +75,46 @@ class ValidationTests(unittest.TestCase):
         self.wb['data']['A3'] = 'forgot marker'
         self.assertEqual(self.check()['status'], 'ERROR')
 
+    def test_loose_stock_exceeding_standard_case_keeps_identity(self):
+        s = self.wb['data']
+        s['S1'] = '散件数'
+        s['S2'] = 110
+        s['S4'] = 110
+        s['H2'] = 4
+        s['I2'] = 4300
+        s['J2'] = 430
+        s['O2'] = .5
+        s['H4'] = 4
+        s['I4'] = 4300
+        s['J4'] = 430
+        s['O4'] = .5
+        self.assertEqual(self.check()['status'], 'PASS')
+        s['J2'] = 320
+        self.assertEqual(self.check()['status'], 'ERROR')
+
+    def test_mixed_units_require_separate_quantity_totals(self):
+        s = self.wb['data']
+        s['F1'] = '单价（元）'
+        s.insert_rows(3)
+        for c in range(1, 19):
+            s.cell(3, c).value = s.cell(2, c).value
+        s['A3'] = '40S-1381'
+        s['C3'] = '女士内裤'
+        s['R3'] = '条'
+        s['H5'] = 4
+        s['I5'] = 3200
+        s['O5'] = .4
+        s['J5'] = None
+        s['A6'] = '打数合计'
+        s['J6'] = 160
+        s['R6'] = '打'
+        s['A7'] = '条数合计'
+        s['J7'] = 160
+        s['R7'] = '条'
+        self.assertEqual(self.check()['status'], 'PASS')
+        s['J5'] = 320
+        self.assertEqual(self.check()['status'], 'ERROR')
+
 
 if __name__ == '__main__':
     unittest.main()

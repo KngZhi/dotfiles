@@ -176,3 +176,29 @@ test('mixed container retains underwear pieces through loading and costing', asy
   workbook.Sheets.data.J3.v = '条';
   assert.equal(loadDataSheet(workbook)[0].计价单位, '条');
 });
+
+
+test('MF401 keeps four standard cases and all 110 loose dozens through costing', async () => {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ['货号', '品名', '条形码', '单价（元/打）', '装箱数', '件数', '总数量', '总立方', '供应商', '计价单位', '散件数'],
+    ['MF401', '女士中筒袜', '', 10, 80, 4, 430, 0.49392, '新疆', '打', 110],
+    ['DATA_END'],
+  ]), 'data');
+  const rows = loadDataSheet(workbook);
+  assert.equal(rows[0].散件数, 110);
+  assert.deepEqual(normalizePricingUnits(rows), rows);
+  const [result] = await calculateCosts(rows, {
+    海运费: 0, 内陆费: 0, 卸柜费: 0, 清关杂费: 0,
+    'USD-CLP': 900, 'USD-CNY': 7, 'CNY-CLP': 100, IVA: 430,
+    货柜号: 'TEST',
+  }, async () => ({ products: new Map(), checkedProductNumbers: new Set(), errors: [] }));
+  assert.equal(result.件数, 4);
+  assert.equal(result.装箱数, 80);
+  assert.equal(result.散件数, 110);
+  assert.equal(result.成本价, 1001);
+  assert.equal(result.件数 * result.装箱数 + result.散件数!, 430);
+  const [pairs] = normalizePricingUnits([{...rows[0], 单价: 10/12, 计价单位: '双', 装箱数: 960, 总数量: 5160, 散件数: 1320}]);
+  assert.equal(pairs.散件数, 110);
+  assert.equal(pairs.总数量, 430);
+});
