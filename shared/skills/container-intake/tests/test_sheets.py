@@ -43,6 +43,10 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(sheets.set_cell_value('data', 'G2', '12.5'), 12.5)
         self.assertEqual(sheets.set_cell_value('config', 'B2', '6903070215357'), 6903070215357)
 
+    def test_upload_title_defaults_to_xlsx_basename(self):
+        self.assertEqual(sheets.upload_title(Path('/tmp/MSMU8846603_成本暂估.xlsx')), 'MSMU8846603_成本暂估')
+        self.assertEqual(sheets.upload_title(Path('/tmp/MSMU8846603_成本暂估.xlsx'), 'Custom标题'), 'Custom标题')
+
     def test_loose_defaults_to_zero(self):
         row = {k: v for k, v in ROW.items() if k != '散件数'}
         self.assertEqual(sheets.data_matrix([row])[1][9], 0)

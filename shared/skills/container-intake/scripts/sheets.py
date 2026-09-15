@@ -156,6 +156,11 @@ def set_cell_value(sheet, cell, raw):
     return parse_value(raw)
 
 
+def upload_title(xlsx_path, name=None):
+    """Spreadsheet title for `upload`: an explicit --name, or the xlsx basename without extension."""
+    return name or Path(xlsx_path).stem
+
+
 # ---- notes and marks (pure) ---------------------------------------------------
 
 
@@ -228,6 +233,45 @@ def folder_id(gc, create=False):
     r = session.post('https://www.googleapis.com/drive/v3/files', json={'name': name, 'mimeType': 'application/vnd.google-apps.folder'})
     r.raise_for_status()
     return r.json()['id']
+
+
+XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+SHEET_MIME = 'application/vnd.google-apps.spreadsheet'
+DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files'
+
+
+def find_spreadsheet_id(gc, folder, title):
+    """id of an existing spreadsheet named `title` directly inside `folder`, or None."""
+    session = gc.http_client.session
+    query = (f"name = '{title}' and mimeType = '{SHEET_MIME}' and "
+             f"'{folder}' in parents and trashed = false")
+    r = session.get('https://www.googleapis.com/drive/v3/files', params={'q': query, 'fields': 'files(id)'})
+    r.raise_for_status()
+    files = r.json().get('files', [])
+    return files[0]['id'] if files else None
+
+
+def upload_sheet(gc, xlsx_path, title):
+    """Upload xlsx_path into the working Drive folder as a Sheet named `title`, converting
+    on upload. Overwrites an existing spreadsheet with that exact name instead of duplicating
+    it. Returns (file_id, overwritten)."""
+    folder = folder_id(gc, create=True)
+    session = gc.http_client.session
+    data = Path(xlsx_path).read_bytes()
+    existing = find_spreadsheet_id(gc, folder, title)
+    if existing:
+        r = session.patch(f'{DRIVE_UPLOAD_URL}/{existing}', params={'uploadType': 'media'},
+                           data=data, headers={'Content-Type': XLSX_MIME})
+        r.raise_for_status()
+        return existing, True
+    boundary = 'container-intake-upload'
+    metadata = json.dumps({'name': title, 'mimeType': SHEET_MIME, 'parents': [folder]})
+    body = (f'--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n{metadata}\r\n'
+            f'--{boundary}\r\nContent-Type: {XLSX_MIME}\r\n\r\n').encode('utf-8') + data + f'\r\n--{boundary}--'.encode('utf-8')
+    r = session.post(DRIVE_UPLOAD_URL, params={'uploadType': 'multipart'}, data=body,
+                      headers={'Content-Type': f'multipart/related; boundary={boundary}'})
+    r.raise_for_status()
+    return r.json()['id'], False
 
 
 def open_sheet(gc, ref):
@@ -344,6 +388,16 @@ def cmd_create(args):
     sh = create_sheet(gc, args.container, rows, config, notes)
     print(sh.url)
     run_validation(sh)
+
+
+def cmd_upload(args):
+    if not args.xlsx.exists():
+        raise SystemExit(f'找不到文件 {args.xlsx}')
+    title = upload_title(args.xlsx, args.name)
+    gc = connect()
+    file_id, overwritten = upload_sheet(gc, args.xlsx, title)
+    url = f'https://docs.google.com/spreadsheets/d/{file_id}'
+    print(f"{'已覆盖已有表格' if overwritten else '已上传'} {title}：{url}")
 
 
 def cmd_url(args):
@@ -483,6 +537,10 @@ def main(argv=None):
     p.add_argument('container')
     p.add_argument('--from', dest='source', type=Path)
     p.set_defaults(fn=cmd_create)
+    p = sub.add_parser('upload', help='把任意本地 xlsx 上传为同一文件夹里的查看用表格（非契约表，不验证）')
+    p.add_argument('xlsx', type=Path)
+    p.add_argument('--name')
+    p.set_defaults(fn=cmd_upload)
     p = sub.add_parser('url', help='打印表格链接')
     p.add_argument('ref')
     p.set_defaults(fn=cmd_url)
