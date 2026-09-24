@@ -80,16 +80,27 @@ test('product lookup reports missing API configuration instead of calling K2046'
   assert.deepEqual(transport.requests, []);
 });
 
-test('product lookup failure is reported and leaves every SKU unchecked', async () => {
+test('a failed batch only leaves its own 10 SKUs unchecked', async () => {
+  const productBatchSizes: number[] = [];
+  const good = fakeK2046(productBatchSizes);
   const transport = new FakeK2046Transport([
     respond({ total: 0, productCategories: [] }),
-    { status: 500, body: { data: null, error: { code: 500, message: 'boom' } } },
+    request => good.request(request),
+    // 4xx 不会被客户端重试，所以这一批确定失败一次。
+    { status: 400, body: { data: null, error: { code: 400, message: 'boom' } } },
+    request => good.request(request),
   ]);
-  const result = await queryProductsByNumber(['S212'], { config, transport });
+  const productNumbers = Array.from({ length: 23 }, (_, index) => `SKU${index + 1}`);
+
+  const result = await queryProductsByNumber(productNumbers, { config, transport });
+
   assert.equal(result.errors.length, 1);
-  assert.match(result.errors[0], /^K2046 产品查询失败：/);
-  assert.equal(result.products.size, 0);
-  assert.equal(result.checkedProductNumbers.size, 0);
+  assert.match(result.errors[0], /^K2046 产品查询批次 2 失败：/);
+  assert.equal(result.products.size, 13);
+  assert.equal(result.checkedProductNumbers.size, 13);
+  assert.equal(result.checkedProductNumbers.has('SKU1'), true);
+  assert.equal(result.checkedProductNumbers.has('SKU11'), false);
+  assert.equal(result.checkedProductNumbers.has('SKU23'), true);
 });
 
 test('supplier lookup keeps only Supplier-type entries from the official client', async () => {

@@ -2,6 +2,8 @@ import type { K2046Client, K2046Transport } from '@kngzhi/k2046-api-client';
 import { getApiConfig, type ApiConfig } from './config.js';
 import { createOfficialK2046Client } from './k2046-api-client.js';
 
+const PRODUCT_BATCH_SIZE = 10;
+
 // K2046 读取全部经由官方客户端 @kngzhi/k2046-api-client；本文件只把客户端结果
 // 整理成计算和校验所依赖的形状（分类名补全、按货号索引、查询错误列表）。
 
@@ -85,10 +87,19 @@ export async function queryProductsByNumber(
 
   const client = createClient(config, dependencies);
   const categories = await fetchCategoryMap(client);
-  try {
-    // 客户端按 10 个货号一批查询（K2046 静默丢弃超出的货号），不存在的货号不在结果里。
-    const found = await client.products.findBySkus(unique);
-    for (const productNumber of unique) result.checkedProductNumbers.add(productNumber);
+  // 按 10 个货号一批分别查询：K2046 静默丢弃超出 10 个的货号，客户端对一次调用整批快速失败，
+  // 所以这里自己分批，一批失败只影响这 10 个货号，其余批次照常判定。
+  for (let offset = 0; offset < unique.length; offset += PRODUCT_BATCH_SIZE) {
+    const batch = unique.slice(offset, offset + PRODUCT_BATCH_SIZE);
+    const batchNumber = offset / PRODUCT_BATCH_SIZE + 1;
+    let found: Awaited<ReturnType<K2046Client['products']['findBySkus']>>;
+    try {
+      found = await client.products.findBySkus(batch);
+    } catch (error) {
+      result.errors.push(`K2046 产品查询批次 ${batchNumber} 失败：${errorMessage(error)}`);
+      continue;
+    }
+    for (const productNumber of batch) result.checkedProductNumbers.add(productNumber);
     for (const raw of Object.values(found)) {
       const product: K2046Product = {
         productNumber: raw.productNumber,
@@ -111,8 +122,6 @@ export async function queryProductsByNumber(
       }
       result.products.set(product.productNumber, product);
     }
-  } catch (error) {
-    result.errors.push(`K2046 产品查询失败：${errorMessage(error)}`);
   }
   return result;
 }
