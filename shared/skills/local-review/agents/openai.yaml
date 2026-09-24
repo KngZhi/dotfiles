@@ -1,0 +1,7 @@
+interface:
+  display_name: "Local Review"
+  short_description: "Run Simplify, Code Review, and Linus Review locally"
+  default_prompt: "Use $local-review to run Simplify, Code Review, and Linus Review on the current task's changes."
+
+policy:
+  allow_implicit_invocation: false

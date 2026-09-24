@@ -1,0 +1,7 @@
+interface:
+  display_name: "Ship Stack"
+  short_description: "Land verified PRs of a stack from the bottom"
+  default_prompt: "Use $ship-stack to verify and land this PR stack from the bottom."
+
+policy:
+  allow_implicit_invocation: false
