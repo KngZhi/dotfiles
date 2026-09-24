@@ -8,5 +8,6 @@ rule:
       any:
         - kind: as_pattern
         - kind: identifier
+        - kind: attribute
         - kind: tuple
 message: "Avoid bare 'except:' - specify exception type like 'except Exception:'"
