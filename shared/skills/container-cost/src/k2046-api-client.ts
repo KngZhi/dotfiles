@@ -31,12 +31,7 @@ export function createOfficialK2046Client(
   });
 }
 
-/**
- * Read-only basic product lookup through the published official client.
- *
- * Batch/full product data, categories, and suppliers still use k2046.ts until
- * those domain APIs are available in the official package.
- */
+/** Read-only single-SKU lookup used by the connectivity smoke command. */
 export async function findProductBySkuWithOfficialClient(
   sku: string,
   dependencies: OfficialK2046ClientDependencies = {},
