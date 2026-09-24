@@ -5,9 +5,10 @@ description: Create GitHub issues and set KngZhi Project fields when the user as
 
 # Create GitHub Issue
 
-Use GitHub CLI as the primary execution path. Create one well-scoped Issue,
-add it to the shared Project, set its planning fields, and read it back before
-reporting success. Use the browser only as a fallback.
+Use GitHub CLI to create one well-scoped Issue, add it to the shared Project,
+set its planning fields, and read it back before reporting success. Use the
+[browser fallback](references/fallbacks.md#browser-fallback) only when `gh` is
+genuinely unavailable after the authorized authentication path is exhausted.
 
 ## Contract
 
@@ -19,52 +20,47 @@ reporting success. Use the browser only as a fallback.
   - `Horizon`: `Now`, `Next`, `Later`
   - `Work Type`: `Epic`, `Work`, `Spike`
 
-Treat the shared Issue Form as the canonical content schema, not as the
-required submission mechanism. A CLI-created body must contain `Type`,
-`Outcome`, `Context`, `Scope`, `Acceptance criteria`, and `References`.
+The Issue Form is the canonical content schema, not the required submission
+mechanism. A CLI-created body must contain `Type`, `Outcome`, `Context`, `Scope`,
+`Acceptance criteria`, and `References`.
 
-## Workflow
+## 1. Resolve and preflight
 
-### 1. Resolve and preflight
-
-Use the repository named by the user. Otherwise derive it from the current
+Use the repository named by the user; otherwise derive it from the current
 workspace's `origin` remote. Ask one concise question only when the target
 cannot be resolved safely.
 
 Before any write:
 
 1. Run `gh auth status -h github.com`.
-2. Confirm Project access with
-   `gh project view 1 --owner KngZhi --format json`.
-3. Search open Issues in the target repository for the same outcome.
+2. Confirm Project access with `gh project view 1 --owner KngZhi --format json`.
+3. Search open Issues in the target repository for the same outcome. Reuse an
+   obvious duplicate unless the user explicitly wants a separate Issue.
 
-If authentication is missing or invalid, start `gh auth login -h github.com -w
--s project` only when the user has authorized authentication; otherwise ask
-for that one-time authorization. Do not switch to the browser merely because
-the stored CLI credential needs refreshing.
+If authentication is missing or invalid, run `gh auth login -h github.com -w -s project`
+only when the user has authorized authentication; otherwise ask for that one-time
+authorization. A stored credential that needs refreshing is not a reason to
+switch to the browser.
 
-Reuse an obvious duplicate unless the user explicitly wants a separate Issue.
+## 2. Shape the Issue
 
-### 2. Shape the Issue
+Choose one Project `Work Type` and record it under the body's `Type` heading:
 
-Choose one Project `Work Type` and record it under the Issue body's `Type`
-heading:
-
-- `Epic`: a multi-Issue outcome or roadmap container.
-- `Work`: a concrete feature, fix, chore, or deliverable. Use this default for
+- `Epic`: a multi-Issue outcome or roadmap container. Explain the larger outcome
+  through a representative scenario.
+- `Work`: a concrete feature, fix, chore, or deliverable; the default for
   actionable work when no other type is implied.
-- `Spike`: a time-boxed investigation producing evidence or a decision.
+- `Spike`: a time-boxed investigation. Show the concrete uncertainty and the
+  evidence or decision it should produce; do not invent a settled fix.
 
-Write an outcome-focused title. For a behavior change, start with a concrete
-object the reader recognizes: a particular SKU, Pool, order, document, or user
-action. Walk that same object through the current problem, the intended change,
-and the expected result, then explain the broader business benefit. The reader
-should understand this before encountering formulas or implementation terms.
-
-Keep this explanation in the adjacent Context and Outcome sections. Use the same
-inputs on both sides, with names, quantities, dates, units, or visible outputs
-that make the difference clear. Describe the change in plain language at the
-level needed to connect the problem to the result. Retain the schema headings:
+Write an outcome-focused title. For a behavior change, open the Context with a
+concrete object the reader recognizes (a particular SKU, Pool, order, document,
+or user action). Walk that same object, with the same inputs, through the current
+problem, the intended change, and the expected result, then state the broader
+business benefit. Use names, quantities, dates, units, or visible outputs that
+make the difference clear, and describe the change in plain language at the
+level needed to connect problem to result. The reader should understand this
+before meeting formulas or implementation terms. Keep the schema headings:
 
 ```markdown
 ## Context
@@ -92,75 +88,36 @@ Benefit: <how this improves the wider workflow or business decision>
 <Epic | Work | Spike>
 ```
 
-For example, an illustrative SKU A100 has 100 units still expected: 60 matched
-to replenishment commitments and 40 still unmatched. Its code changes to A100-NEW.
+Throughout the body:
 
-- Before: 60 units appear under A100-NEW and 40 under A100, so viewing the new
-  code shows only part of the product's incoming supply.
-- Change: identify both portions by the stable product ID and display the
-  current product code.
-- After: all 100 units appear under A100-NEW; quantities, allocation status,
-  and arrival dates stay the same, and original order details remain traceable.
-- Benefit: people can assess the product's full supply when checking orders or
-  planning replenishment, without manually piecing together old and new codes.
+- Prefer an observed example from the user's report or inspected evidence. When
+  none exists, label the example illustrative and its result expected. Give exact
+  outputs only when evidence or clear assumptions support them; leave genuinely
+  unknown results open. Never present historical results as current, invent
+  successful output, or mark acceptance complete.
+- State the causal benefit that follows from the example, not vague claims such
+  as "improves accuracy" or unsupported savings or performance numbers. A
+  sub-Issue explains its contribution to the parent without claiming it delivers
+  the whole parent's result.
+- Keep the body short: each section adds information rather than restating the
+  example.
+- Acceptance criteria make the opening example checkable with the same inputs
+  and comparison, then cover any other material outcome or boundary. State the
+  observable result in ordinary language before any metric. "Add an E2E test"
+  or "CI passes" alone does not describe the required behavior.
+- Preserve material uncertainty instead of inventing requirements. Ask before
+  creation only when it changes the repository, outcome, or scope. Show a draft
+  first only when the user requests review.
 
-State the causal benefit that follows from the example. Avoid vague claims such
-as "improves accuracy" and unsupported savings or performance numbers. For a
-sub-Issue, explain its contribution to the parent outcome without claiming that
-this part delivers the whole parent's result.
+Read [references/issue-body.md](references/issue-body.md) for a worked
+before/after example, or when the Issue needs investigation context under
+References, a tool or evidence requirement, or a link to the repository's
+verification skill.
 
-For an Epic, use a representative scenario to explain the larger outcome. For a
-Spike, show the concrete uncertainty and the evidence or decision it should
-produce; do not invent a settled fix. Keep the body short, with each section
-adding information rather than restating the example.
+## 3. Create and add with `gh`
 
-Put optional Agent investigation context under References: reproduction inputs,
-evidence, relevant entrypoints, and necessary business constraints. Keep this
-part concise too. Distinguish observed behavior from causal hypotheses and
-implementation suggestions. Ask the implementing Agent to verify hypotheses;
-allow a better explanation or solution when supported by evidence. Do not turn
-prior exploration into a mandatory formula, field design, file list, or test
-implementation. Acceptance criteria constrain outcomes; established business
-rules constrain boundaries. Preserve explicitly authorized technical constraints
-and identify them as such.
-
-Acceptance criteria make the opening example checkable, then cover any other
-material outcomes or boundaries. Keep its inputs and comparison consistent.
-State the observable result in ordinary language before any necessary metric.
-“Add an E2E test” or “CI passes” alone does not describe the required behavior.
-A real E2E assertion can supply evidence for it; screenshots or videos are not
-mandatory for every task.
-
-Inspect the repository's verification skill when available and link it under
-References. Reuse its project operations rather than copying its setup, long
-commands, or reporting procedure into each Issue. Do not require a new script,
-application, or per-Issue verification wrapper by default. Include implementation
-details only when they are necessary constraints, not speculative task lists.
-
-Prefer an observed example from the user's report or inspected evidence. When
-none is available, label a simplified example as illustrative and its desired
-result as expected. Give exact outputs only when supported by evidence or clear
-assumptions; leave genuinely unknown results open. Do not present historical
-results as current observations, invent successful output, or mark acceptance
-complete. When specifying a tool, say what each operation does
-and what observable result shows it worked. For example, an input check reports
-validation status and data date; a prediction run produces a readable snapshot.
-Neither alone establishes that a particular business bug is fixed.
-
-When the Issue needs an explicit evidence requirement, keep it to one criterion:
-show a representative action or short command, its actual result, and how that
-result meets the acceptance criteria. The eventual completion report should
-state what changed, before/after results, evidence, and unverified paths. Keep
-full logs in linked evidence; do not expand the Issue into a verification manual.
-
-Preserve material uncertainty instead of inventing requirements. Ask before
-creation only when uncertainty changes the repository, outcome, or scope.
-Show a draft first only when the user requests review.
-
-### 3. Create and add with `gh`
-
-Provide the body through `--body-file` or stdin using the host's safe file
-mechanism. Avoid interpolating Issue content into executable shell syntax.
+Pass the body through `--body-file` or stdin using the host's safe file
+mechanism; do not interpolate Issue content into executable shell syntax.
 
 1. Create the Issue with `gh issue create --repo <owner/repo> --title <title>
    --body-file <path>` and capture the returned Issue URL.
@@ -168,31 +125,25 @@ mechanism. Avoid interpolating Issue content into executable shell syntax.
    <issue-url> --format json`.
 
 `gh issue create --project <title>` is acceptable only when the exact Project
-title is known. Project number `1` plus `item-add` is the unambiguous default.
+title is known; Project number `1` plus `item-add` is the unambiguous default.
 
-If creation succeeds and a later step fails, retain the Issue URL and retry
-only the incomplete Project operation. Never create a second Issue to recover
-from a downstream failure.
+If creation succeeds and a later step fails, keep the Issue URL and retry only
+the incomplete Project operation. Never create a second Issue to recover from a
+downstream failure.
 
-### 4. Set Project fields
+## 4. Set Project fields
 
 Set `Status` to `Todo` and `Work Type` to the chosen value. Leave `Horizon`
 unset so the Issue appears in `Inbox`, unless the user explicitly requested
 `Now`, `Next`, or `Later`.
 
-Prefer name-based editing when `gh project item-edit --help` exposes `--field`
-and `--value`. Otherwise use the installed CLI's ID-based interface:
-
-1. Read the Project ID with `gh project view`.
-2. Read field and option IDs with `gh project field-list`.
-3. Read the Project item ID from `item-add` output or `gh project item-list`.
-4. Call `gh project item-edit` once per single-select field using `--id`,
-   `--project-id`, `--field-id`, and `--single-select-option-id`.
-
-Project `Work Type` is a Project field. Do not substitute GitHub Issue Types or
+Use name-based editing when `gh project item-edit --help` exposes `--field` and
+`--value`; otherwise follow
+[ID-based field editing](references/fallbacks.md#id-based-field-editing).
+`Work Type` is a Project field: do not substitute GitHub Issue Types or
 `gh issue create --type` for it.
 
-### 5. Verify completion
+## 5. Verify completion
 
 Read the Issue back with `gh issue view` and list Project items with
 `gh project item-list 1 --owner KngZhi --limit 1000 --format json`. Match the
@@ -205,13 +156,6 @@ exact Issue URL and verify:
 
 Report the Issue URL and verified field values. Creation alone is partial
 completion; name any failed or unverified downstream step.
-
-## Browser fallback
-
-Use the target repository's `Work item` Issue Form only when `gh` is genuinely
-unavailable after the authorized authentication path has been exhausted.
-Verify the created Issue in Project `1` and set the same fields before
-reporting success.
 
 ## PR boundary
 
