@@ -116,3 +116,11 @@ test('includes the 12 CLP per USD fee in the user exchange example', async () =>
   assert.equal(config['CNY-CLP'], 942 / 6.7);
   assert.equal(config['USD-CLP'], 930);
 });
+
+
+test('taxable goods USD defaults to 18000 and accepts explicit overrides without live FX', async () => {
+  const raw = { ...required, 内陆费: 0, 'USD-CLP': 950, 'USD-CNY': 7 };
+  assert.equal((await resolveContainerConfig(raw)).ivaGoodsValueUsd, 18000);
+  assert.equal((await resolveContainerConfig({ ...raw, IVA计税货值USD: 20000 })).ivaGoodsValueUsd, 20000);
+  await assert.rejects(() => resolveContainerConfig({ ...raw, IVA计税货值USD: -1 }), /IVA计税货值USD/);
+});

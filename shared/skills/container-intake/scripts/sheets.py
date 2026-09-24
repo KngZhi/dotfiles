@@ -8,6 +8,7 @@
 Run with `uv run scripts/sheets.py <command> ...` from the skill directory. Google API calls are
 confined to the functions taking a spreadsheet or client; layout and note planning are pure.
 """
+import math
 import argparse
 import datetime as dt
 import json
@@ -39,6 +40,7 @@ CONFIG_DEFAULTS = {
     'USD-CNY': (None, 'CNY/USD，中行现汇卖出价'),
     'CNY-CLP': ('formula', '含12比索/美元手续费'),
     'IVA': ('formula', 'CLP，估算'),
+    'IVA计税货值USD': (18000, 'USD，经营估算默认；另加海运费'),
 }
 CONTAINER_NO = re.compile(r'[A-Z]{4}\d{7}')
 CELL = re.compile(r'[A-Z]{1,2}[1-9]\d*')
@@ -61,11 +63,10 @@ def rng(col):
 
 def config_formulas():
     b = {k: f'B{CONFIG_ROW[k]}' for k in CONFIG}
-    total = 'INDEX(data!L:L,MATCH("合计",data!A:A,0))'
     return {
         'CNY-CLP': f'=IF(COUNT({b["USD-CLP"]},{b["USD-CNY"]})<>2,"",({b["USD-CLP"]}+12)/{b["USD-CNY"]})',
-        'IVA': f'=IF(COUNT({total},{b["海运费"]},{b["USD-CLP"]},{b["USD-CNY"]})<>4,"",'
-               f'({total}/{b["USD-CNY"]}+{b["海运费"]})*{b["USD-CLP"]}*0.3*0.19)',
+        'IVA': f'=IF(COUNT({b["IVA计税货值USD"]},{b["海运费"]},{b["USD-CLP"]})<>3,"",'
+               f'({b["IVA计税货值USD"]}+{b["海运费"]})*{b["USD-CLP"]}*0.19)',
     }
 
 
@@ -113,6 +114,19 @@ def config_matrix(values=None, notes=None):
     for k in CONFIG:
         default, note = CONFIG_DEFAULTS[k]
         v = values.get(k, formulas[k] if default == 'formula' else default)
+        if k == 'IVA':
+            source_note = notes.get(k, '')
+            old_formula = isinstance(v, str) and '*0.3*0.19' in v.replace(' ', '')
+            estimated = '估算' in source_note or '暂估' in source_note
+            actual = '实际' in source_note
+            if actual and (estimated or old_formula):
+                raise ValueError('IVA 来源冲突：先确认实际金额或估算')
+            if isinstance(v, (int, float)) and (not math.isfinite(v) or v < 0):
+                raise ValueError('IVA 必须是非负数')
+            if old_formula or (estimated and isinstance(v, (int, float))):
+                v, note = formulas[k], 'CLP，估算'
+            elif isinstance(v, (int, float)) and v > 0 and not source_note:
+                note = 'CLP，实际（显式输入）'
         out.append([k, cell_value(v), notes.get(k) or note])
     return out
 
@@ -133,6 +147,9 @@ def rows_from_book(book):
         if isinstance(key, str):
             config[key] = cell_value(cfg.cell(r, 2).value)
             notes[key] = cell_value(cfg.cell(r, 3).value)
+            if key == 'IVA' and isinstance(config[key], (int, float)) and config[key] > 0:
+                if not any(label in str(notes[key]) for label in ('实际', '估算', '暂估')):
+                    raise ValueError('IVA 来源不明：导入旧表前标注实际或估算')
     return rows, config, notes
 
 

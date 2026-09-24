@@ -29,6 +29,7 @@ Callers must normalize pairs/dozens and repair or allocate missing CBM before th
 | `cnyClp` | no | `(usdClp + 12) / usdCny`; 12 CLP fee per USD |
 | `usdCny` | no | Bank of China USD spot selling quote divided by 100; failure is fatal |
 | `ivaClp` | no | 0 means estimate using the shared IVA formula |
+| `ivaGoodsValueUsd` | no | estimated taxable goods value per container, default 18000 USD; freight added separately |
 
 At least one of `inlandFreightCny` or `inlandPayer` is required. Explicit zero values override defaults.
 USD-CNY comes from https://www.boc.cn/sourcedb/whpj/ (`现汇卖出价`, CNY per 100 USD).
@@ -55,12 +56,15 @@ unloading/unit = unloadingFeeClp × volume share / quantity
 clearance/unit = clearanceMiscFeeClp × volume share / quantity
 ```
 
-Actual IVA is used when nonzero. Otherwise use the user's operating estimate
-specified on 2026-09-14, applying 30% to goods and sea freight together:
+Positive actual IVA takes precedence. Otherwise use the operating estimate confirmed
+on 2026-09-23 ([decision](https://github.com/KngZhi/chile-ops/blob/main/decisions/2026-09-23-container-iva-estimated-taxable-value.md)).
+This is a planning estimate, not a statement of statutory taxation. The per-container
+goods basis defaults to USD 18000 and may be overridden (for example USD 20000).
+The actual purchase value and the CNY conversion fee do not change the estimated IVA total.
 
 ```text
 estimated IVA total
-= (total goods CNY / usdCny + seaFreightUsd) × usdClp × 30% × 19%
+= (ivaGoodsValueUsd + seaFreightUsd) × usdClp × 19%
 
 IVA/unit = estimated IVA total × goods-value share / quantity
 ```

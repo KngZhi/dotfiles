@@ -24,6 +24,7 @@ test('resolves shared defaults while keeping sea freight explicit', async () => 
     cnyClp: 957 / 7,
     usdCny: 7,
     ivaClp: 0,
+    ivaGoodsValueUsd: 18000,
     provenance: {
       seaFreightUsd: { kind: 'explicit' },
       inlandFreightCny: { kind: 'derived', detail: 'inlandPayer=factory' },
@@ -33,6 +34,7 @@ test('resolves shared defaults while keeping sea freight explicit', async () => 
       cnyClp: { kind: 'derived', detail: '(usdClp + 12) / usdCny' },
       usdCny: { kind: 'fetched', detail: 'https://www.boc.cn/sourcedb/whpj/ 现汇卖出价/100' },
       ivaClp: { kind: 'estimated', detail: 'zero triggers estimate' },
+      ivaGoodsValueUsd: { kind: 'default', detail: '18000' },
     },
   });
 });
@@ -85,9 +87,9 @@ test('reuses the container IVA estimate and default cost scenario', async () => 
   });
 
   assert.equal(result.totals.ivaWasEstimated, true);
-  assert.equal(result.totals.ivaTotalClp, 58995);
-  assert.equal(result.rows[0].unroundedLandedCostClp, 2720.795);
-  assert.equal(result.rows[0].landedCostClp, 2721);
+  assert.equal(result.totals.ivaTotalClp, 3249000);
+  assert.equal(result.rows[0].unroundedLandedCostClp, 5910.8);
+  assert.equal(result.rows[0].landedCostClp, 5911);
 });
 
 test('rejects missing inputs instead of producing plausible zero costs', async () => {
@@ -137,4 +139,19 @@ test('derives CNY-CLP with the fee while preserving explicit actual rates', asyn
   const actual = await resolveCostConfig({ ...raw, cnyClp: 135 });
   assert.equal(actual.cnyClp, 135);
   assert.deepEqual(actual.provenance.cnyClp, { kind: 'explicit' });
+});
+
+
+test('taxable basis is configurable and independent of purchase value and the CNY FX fee', async () => {
+  for (const unitPriceCny of [1, 100]) {
+    const rows = [{ id: 'X', unitPriceCny, totalQuantity: 1, totalVolumeM3: 68 }];
+    const raw = { seaFreightUsd: 3000, inlandFreightCny: 0, usdClp: 950, usdCny: 7 };
+    const base = calculateLandedCosts({ rows, config: await resolveCostConfig(raw) });
+    const changed = calculateLandedCosts({ rows, config: await resolveCostConfig({ ...raw, ivaGoodsValueUsd: 20000 }) });
+    const actual = calculateLandedCosts({ rows, config: await resolveCostConfig({ ...raw, ivaGoodsValueUsd: 20000, ivaClp: 123 }) });
+    assert.equal(base.totals.ivaTotalClp, 3790500);
+    assert.equal(changed.totals.ivaTotalClp, 4151500);
+    assert.equal(actual.totals.ivaTotalClp, 123);
+    assert.equal(actual.totals.ivaWasEstimated, false);
+  }
 });

@@ -78,6 +78,7 @@
     "USD-CLP",
     "USD-CNY",
     "CNY-CLP",
-    "IVA"
+    "IVA",
+    "IVA计税货值USD"
   ]
 }

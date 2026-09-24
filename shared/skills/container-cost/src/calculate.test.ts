@@ -10,6 +10,7 @@ import {
   calculateCosts,
   generateOutput,
   loadDataSheet,
+  readRawConfig,
   normalizePricingUnits,
   OPTIONAL_CONFIG_PARAMS,
   REQUIRED_CONFIG_PARAMS,
@@ -126,7 +127,7 @@ test('only sea freight and container number are required config parameters', () 
   assert.equal(OPTIONAL_CONFIG_PARAMS.includes('清关杂费'), true);
 });
 
-test('estimates IVA on goods plus sea freight together and preserves an explicit IVA', async () => {
+test('estimates IVA on the fixed taxable basis plus sea freight and preserves actual IVA', async () => {
   const rows = [{ ...sockRow, 单价: 7, 装箱数: 100, 件数: 10, 总数量: 1000, 计价单位: '打' as const }];
   const params = {
     海运费: 2000, 内陆费: 0, 卸柜费: 0, 清关杂费: 0,
@@ -134,8 +135,8 @@ test('estimates IVA on goods plus sea freight together and preserves an explicit
   };
   const query = async () => ({ products: new Map(), checkedProductNumbers: new Set(['SOCK1']), errors: [] });
   const [estimated] = await calculateCosts(rows, params, query);
-  // USD 1000 goods + USD 2000 freight gives CLP 153900 estimated IVA.
-  assert.equal(estimated.成本价, 2899);
+  // USD 18000 taxable goods + USD 2000 freight gives CLP 3420000 IVA.
+  assert.equal(estimated.成本价, 6165);
   const [actual] = await calculateCosts(rows, { ...params, IVA: 100000 }, query);
   assert.equal(actual.成本价, 2845);
 });
@@ -258,4 +259,36 @@ test('13-column standard template maps prices, packing, quantities and volumes c
   assert.equal(rows[1].计价单位, '条');
   assert.equal(rows[1].装箱数, 1200);
   assert.deepEqual(normalizePricingUnits(rows), rows);
+});
+
+
+test('IVA scenario uses 18000 or overridden 20000, independently of actual goods and FX fee', async () => {
+  const params = { 海运费: 3000, 内陆费: 0, 卸柜费: 0, 清关杂费: 0,
+    'USD-CLP': 950, 'USD-CNY': 7, 'CNY-CLP': 100, IVA: 0, 货柜号: 'TEST' };
+  const query = async () => ({ products: new Map(), checkedProductNumbers: new Set(['SOCK1']), errors: [] });
+  for (const 单价 of [1, 100]) {
+    const rows = [{ ...sockRow, 单价, 总数量: 1, 件数: 1, 装箱数: 1, 计价单位: '打' as const }];
+    const [base] = await calculateCosts(rows, params, query);
+    const [changed] = await calculateCosts(rows, { ...params, ivaGoodsValueUsd: 20000 }, query);
+    assert.equal(base.成本价 - 单价 * 100 - 3000 * 950, 3790500);
+    assert.equal(changed.成本价 - base.成本价, 361000);
+  }
+});
+
+test('reads IVA provenance without accepting a stale positive estimate cache as actual', () => {
+  const make = (value: number, note = '', formula?: string) => {
+    const sheet = XLSX.utils.aoa_to_sheet([['参数', '值', '说明'], ['IVA', value, note]]);
+    if (formula) sheet.B2.f = formula;
+    return { SheetNames: ['config'], Sheets: { config: sheet } };
+  };
+  assert.equal(readRawConfig(make(999, '', '(A1/B1+C1)*D1*0.3*0.19')).IVA, 0);
+  assert.equal(readRawConfig(make(999, 'CLP，估算')).IVA, 0);
+  assert.equal(readRawConfig(make(999, '', 'IF(COUNT(B13,B5,B9)<>3,"",(B13+B5)*B9*0.19)')).IVA, 0);
+  assert.equal(readRawConfig(make(999, '实际税单')).IVA, 999);
+  assert.throws(() => readRawConfig(make(999)), /来源不明/);
+  assert.throws(() => readRawConfig(make(999, '', 'SUM(A1:A2)')), /来源不明/);
+  assert.throws(() => readRawConfig(make(999, '实际税单', '(A1/B1+C1)*D1*0.3*0.19')), /来源不明/);
+  assert.equal(readRawConfig(make(999), 123).IVA, 123);
+  assert.throws(() => readRawConfig(make(-1, '估算')), /非负数/);
+  assert.throws(() => readRawConfig(make(NaN, '估算')), /非负数/);
 });

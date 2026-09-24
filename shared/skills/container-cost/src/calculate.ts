@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import * as XLSX from './xlsx.js';
 import { PATHS } from './config.js';
 import {
+  DEFAULT_IVA_GOODS_VALUE_USD,
   resolveContainerConfig,
   type ContainerConfig,
   type RateFetch,
@@ -23,7 +24,7 @@ export const REQUIRED_DATA_COLUMNS = [
 export const REQUIRED_CONFIG_PARAMS = ['海运费', '货柜号'] as const;
 export const OPTIONAL_CONFIG_PARAMS = [
   '内陆费', '内陆费承担方', '卸柜费', 'USD-CLP', 'USD-CNY', 'CNY-CLP',
-  '清关杂费', 'IVA',
+  '清关杂费', 'IVA', 'IVA计税货值USD',
 ] as const;
 
 export type PricingUnit = '双' | '打' | '条';
@@ -103,15 +104,36 @@ export function validateDataColumns(worksheet: XLSX.WorkSheet): void {
 
 export function loadExcelFile(filePath: string): XLSX.WorkBook {
   if (!existsSync(filePath)) throw new Error(`Excel 文件不存在：${filePath}`);
-  const workbook = XLSX.readFile(filePath, { cellFormula: false, cellDates: true });
+  const workbook = XLSX.readFile(filePath, { cellFormula: true, cellDates: true });
   validateSheetNames(workbook);
   return workbook;
 }
 
-export function readRawConfig(workbook: XLSX.WorkBook): Record<string, unknown> {
+export function readRawConfig(workbook: XLSX.WorkBook, ivaOverride?: number): Record<string, unknown> {
   const rows = XLSX.utils.sheet_to_json(workbook.Sheets.config, { header: 1 }) as unknown[][];
   const raw: Record<string, unknown> = {};
-  for (const row of rows) {
+  for (const [index, row] of rows.entries()) {
+    if (String(row[0] ?? '').trim() === 'IVA') {
+      if (ivaOverride !== undefined) { raw.IVA = ivaOverride; continue; }
+      const cell = workbook.Sheets.config[`B${index + 1}`];
+      if (cell?.t === 'e') throw new Error('IVA 必须是非负数；单元格含错误值');
+      const formula = String(cell?.f ?? '').replace(/\s/g, '');
+      const note = String(row[2] ?? '');
+      if (!formula && row[1] != null && row[1] !== ''
+        && (!Number.isFinite(Number(row[1])) || Number(row[1]) < 0)) {
+        throw new Error('IVA 必须是非负数');
+      }
+      const estimated = /估算|暂估|estimated/i.test(note);
+      const actual = /实际|actual/i.test(note);
+      // Generated formulas are estimates even when Excel supplies a positive cache.
+      const knownFormula = /\*0\.3\*0\.19/.test(formula)
+        || /^IF\(COUNT\(B\d+,B\d+,B\d+\)<>3,"",\(B\d+\+B\d+\)\*B\d+\*0\.19\)$/.test(formula);
+      if ((estimated && actual) || (actual && knownFormula) || (formula && !knownFormula)
+        || (!formula && Number(row[1]) > 0 && !estimated && !actual)) {
+        throw new Error('IVA 来源不明：标注 实际/估算，或用 prepare:config --iva 明确实际金额；不猜测旧缓存');
+      }
+      if (knownFormula || estimated) { raw.IVA = 0; continue; }
+    }
     if (row.length >= 2 && String(row[0] ?? '').trim() && row[1] !== '') {
       raw[String(row[0]).trim()] = row[1];
     }
@@ -310,15 +332,10 @@ export async function calculateCosts(
     row => row.单价 * row.总数量 * params['CNY-CLP'],
   );
   const sumAmount = rowAmounts.reduce((sum, amount) => sum + amount, 0);
-  const totalGoodsValueCny = dataWithVolumes.reduce(
-    (sum, row) => sum + row.单价 * row.总数量,
-    0,
-  );
-
   let iva = params.IVA;
   if (iva === 0) {
-    iva = (totalGoodsValueCny / params['USD-CNY'] + params.海运费)
-      * params['USD-CLP'] * 0.3 * 0.19;
+    iva = ((params.ivaGoodsValueUsd ?? DEFAULT_IVA_GOODS_VALUE_USD) + params.海运费)
+      * params['USD-CLP'] * 0.19;
   }
 
   const results = dataWithVolumes.map((row, index) => {

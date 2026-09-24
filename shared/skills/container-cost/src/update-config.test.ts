@@ -40,3 +40,13 @@ test('prepare derives blank CNY-CLP with fee and preserves actual overrides', as
   const actual = await prepareConfigValues({ ...rates, 'CNY-CLP': 135 });
   assert.equal(actual['CNY-CLP'], 135);
 });
+
+
+test('prepare persists taxable goods default and explicit per-container override', async () => {
+  const raw = { 'USD-CLP': 950, 'USD-CNY': 7, 内陆费: 0 };
+  assert.equal((await prepareConfigValues(raw))['IVA计税货值USD'], 18000);
+  assert.equal((await prepareConfigValues(raw, { IVA计税货值USD: 20000 }))['IVA计税货值USD'], 20000);
+  await assert.rejects(() => prepareConfigValues(raw, { IVA计税货值USD: -1 }), /非负数/);
+  await assert.rejects(() => prepareConfigValues(raw, { IVA: -1 }), /IVA 必须是非负数/);
+  await assert.rejects(() => prepareConfigValues(raw, { IVA: NaN }), /IVA 必须是非负数/);
+});

@@ -58,7 +58,20 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(m[1][1], 'TGBU5973558')
         self.assertEqual(m[sheets.CONFIG_ROW['卸柜费'] - 1][1], 125000)
         self.assertTrue(m[sheets.CONFIG_ROW['IVA'] - 1][1].startswith('=IF('))
-        self.assertIn('MATCH("合计",data!A:A,0)', m[sheets.CONFIG_ROW['IVA'] - 1][1])
+        self.assertEqual(m[sheets.CONFIG_ROW['IVA计税货值USD'] - 1][1], 18000)
+        formula = m[sheets.CONFIG_ROW['IVA'] - 1][1]
+        self.assertEqual(formula, '=IF(COUNT(B13,B5,B9)<>3,"",(B13+B5)*B9*0.19)')
+        self.assertNotIn('data!', formula)
+        self.assertEqual(sheets.config_matrix({'IVA': 123})[sheets.CONFIG_ROW['IVA'] - 1][2], 'CLP，实际（显式输入）')
+
+    def test_config_migrates_known_estimates_and_preserves_actual_iva(self):
+        row = sheets.CONFIG_ROW['IVA'] - 1
+        expected = sheets.config_formulas()['IVA']
+        self.assertEqual(sheets.config_matrix({'IVA': '=(A1/B1+C1)*D1*0.3*0.19'})[row][1], expected)
+        self.assertEqual(sheets.config_matrix({'IVA': 999}, {'IVA': 'CLP，估算'})[row][1], expected)
+        self.assertEqual(sheets.config_matrix({'IVA': 999}, {'IVA': 'CLP，实际'})[row][1], 999)
+        with self.assertRaises(ValueError):
+            sheets.config_matrix({'IVA': '=(A1/B1+C1)*D1*0.3*0.19'}, {'IVA': '实际'})
 
     def test_matrices_validate_like_a_workbook(self):
         data = computed(sheets.data_matrix([ROW]), {(1, 10): 165, (1, 11): 1650, (4, 8): 2, (4, 11): 1650, (4, 12): 0.2,
@@ -76,6 +89,12 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(rows[0]['总数量'], 165)
         self.assertEqual(config_values['ETA'], '2026-10-18')
         self.assertEqual(notes['卸柜费'], 'CLP，默认')
+
+    def test_existing_positive_iva_without_provenance_is_not_relabelled_actual(self):
+        data = sheets.data_matrix([ROW])
+        config = [['参数', '值', '说明'], ['IVA', 123, '']]
+        with self.assertRaisesRegex(ValueError, 'IVA 来源不明'):
+            sheets.rows_from_book(book_from_matrices({'data': data, 'config': config}, {}))
 
     def test_sheet_errors_and_numeric_ids_are_reported(self):
         data = computed(sheets.data_matrix([dict(ROW, 条形码='x')]), {(1, 10): '#REF!', (1, 11): 1650})
