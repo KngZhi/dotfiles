@@ -1,10 +1,9 @@
+import type { K2046Client, K2046Transport } from '@kngzhi/k2046-api-client';
 import { getApiConfig, type ApiConfig } from './config.js';
+import { createOfficialK2046Client } from './k2046-api-client.js';
 
-const PRODUCT_BATCH_SIZE = 10;
-
-// TODO(api-client): This file is the single temporary HTTP adapter boundary.
-// Replace its exported functions with the official K2046 api-client after that
-// package is fixed; calculation and validation depend only on these interfaces.
+// K2046 读取全部经由官方客户端 @kngzhi/k2046-api-client；本文件只把客户端结果
+// 整理成计算和校验所依赖的形状（分类名补全、按货号索引、查询错误列表）。
 
 export interface K2046Product {
   productNumber: string;
@@ -36,32 +35,30 @@ export interface ProductQueryResult {
 
 export interface K2046Dependencies {
   config?: ApiConfig;
-  fetchImpl?: typeof fetch;
+  /** 测试注入用；见 @kngzhi/k2046-api-client/testing 的 FakeK2046Transport。 */
+  transport?: K2046Transport;
 }
 
-function requestHeaders(config: ApiConfig): Record<string, string> {
-  return {
-    'X-Auth-Token': config.authToken,
-    ...(config.cookie ? { Cookie: config.cookie } : {}),
-  };
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
-async function fetchCategoryMap(
-  config: ApiConfig,
-  fetchImpl: typeof fetch,
-): Promise<Map<number, string>> {
+function hasApiConfig(config: ApiConfig): boolean {
+  return Boolean(config.baseUrl && config.authToken);
+}
+
+function createClient(config: ApiConfig, dependencies: K2046Dependencies): K2046Client {
+  return createOfficialK2046Client({
+    config,
+    ...(dependencies.transport ? { transport: dependencies.transport } : {}),
+  });
+}
+
+async function fetchCategoryMap(client: K2046Client): Promise<Map<number, string>> {
   const categoryMap = new Map<number, string>();
-  const url = new URL('/be/api/product/categories', config.baseUrl);
-  url.searchParams.set('limit', '999');
   try {
-    const response = await fetchImpl(url, { headers: requestHeaders(config) });
-    if (!response.ok) return categoryMap;
-    const payload = await response.json() as {
-      data?: { productCategories?: Array<{ id: number; name: string }> };
-    };
-    for (const category of payload.data?.productCategories ?? []) {
-      categoryMap.set(category.id, category.name);
-    }
+    const { items } = await client.productCategories.listAll();
+    for (const category of items) categoryMap.set(category.id, category.name);
   } catch {
     // 分类名称是补充信息；产品成本计算仍可继续。
   }
@@ -73,7 +70,6 @@ export async function queryProductsByNumber(
   dependencies: K2046Dependencies = {},
 ): Promise<ProductQueryResult> {
   const config = dependencies.config ?? getApiConfig();
-  const fetchImpl = dependencies.fetchImpl ?? fetch;
   const unique = [...new Set(productNumbers.map(value => value.trim()).filter(Boolean))];
   const result: ProductQueryResult = {
     products: new Map(),
@@ -82,44 +78,41 @@ export async function queryProductsByNumber(
   };
 
   if (unique.length === 0) return result;
-  if (!config.baseUrl || !config.authToken) {
+  if (!hasApiConfig(config)) {
     result.errors.push('K2046 API 配置缺失，未执行产品查询');
     return result;
   }
 
-  const categories = await fetchCategoryMap(config, fetchImpl);
-  for (let offset = 0; offset < unique.length; offset += PRODUCT_BATCH_SIZE) {
-    const batch = unique.slice(offset, offset + PRODUCT_BATCH_SIZE);
-    const url = new URL('/be/api/product/products/existing', config.baseUrl);
-    for (const productNumber of batch) {
-      url.searchParams.append('searchWords[]', productNumber);
-    }
-
-    try {
-      const response = await fetchImpl(url, { headers: requestHeaders(config) });
-      if (!response.ok) {
-        result.errors.push(`K2046 产品查询批次 ${offset / PRODUCT_BATCH_SIZE + 1} 返回 HTTP ${response.status}`);
-        continue;
-      }
-      const payload = await response.json() as {
-        data?: { products?: Record<string, K2046Product> };
+  const client = createClient(config, dependencies);
+  const categories = await fetchCategoryMap(client);
+  try {
+    // 客户端按 10 个货号一批查询（K2046 静默丢弃超出的货号），不存在的货号不在结果里。
+    const found = await client.products.findBySkus(unique);
+    for (const productNumber of unique) result.checkedProductNumbers.add(productNumber);
+    for (const raw of Object.values(found)) {
+      const product: K2046Product = {
+        productNumber: raw.productNumber,
+        ...(raw.barCode1 === undefined ? {} : { barCode1: raw.barCode1 }),
+        ...(raw.title1 === undefined ? {} : { title1: raw.title1 }),
+        ...(raw.title2 === undefined ? {} : { title2: raw.title2 }),
+        ...(raw.supplier === undefined ? {} : { supplier: { ...raw.supplier } }),
+        ...(raw.boxPrice === undefined ? {} : { boxPrice: raw.boxPrice }),
+        ...(raw.bigBagPrice === undefined ? {} : { bigBagPrice: raw.bigBagPrice }),
+        ...(raw.bagPrice === undefined ? {} : { bagPrice: raw.bagPrice }),
+        ...(raw.unitPrice === undefined ? {} : { unitPrice: raw.unitPrice }),
+        ...(raw.packingBox === undefined ? {} : { packingBox: raw.packingBox }),
+        ...(raw.packingBigBag === undefined ? {} : { packingBigBag: raw.packingBigBag }),
+        ...(raw.packingBag === undefined ? {} : { packingBag: raw.packingBag }),
+        ...(raw.category === undefined ? {} : { category: raw.category ? { ...raw.category } : null }),
       };
-      const products = payload.data?.products ?? {};
-      for (const productNumber of batch) result.checkedProductNumbers.add(productNumber);
-      for (const [key, rawProduct] of Object.entries(products)) {
-        const productNumber = rawProduct.productNumber || key;
-        const product = { ...rawProduct, productNumber };
-        if (product.category) {
-          product.categoryName = product.category.name;
-          product.categoryParentName = categories.get(product.category.parentId);
-        }
-        result.products.set(productNumber, product);
+      if (product.category) {
+        product.categoryName = product.category.name;
+        product.categoryParentName = categories.get(product.category.parentId);
       }
-    } catch (error) {
-      result.errors.push(
-        `K2046 产品查询批次 ${offset / PRODUCT_BATCH_SIZE + 1} 失败：${error instanceof Error ? error.message : String(error)}`,
-      );
+      result.products.set(product.productNumber, product);
     }
+  } catch (error) {
+    result.errors.push(`K2046 产品查询失败：${errorMessage(error)}`);
   }
   return result;
 }
@@ -134,16 +127,13 @@ export async function querySuppliers(
   dependencies: K2046Dependencies = {},
 ): Promise<SupplierInfo[]> {
   const config = dependencies.config ?? getApiConfig();
-  const fetchImpl = dependencies.fetchImpl ?? fetch;
-  if (!config.baseUrl || !config.authToken) return [];
+  if (!hasApiConfig(config)) return [];
 
-  const url = new URL('/be/api/supplier/suppliers', config.baseUrl);
-  url.searchParams.set('limit', '100');
   try {
-    const response = await fetchImpl(url, { headers: requestHeaders(config) });
-    if (!response.ok) return [];
-    const payload = await response.json() as { data?: { suppliers?: SupplierInfo[] } };
-    return (payload.data?.suppliers ?? []).filter(supplier => supplier.type === 'Supplier');
+    const { items } = await createClient(config, dependencies).suppliers.listAll();
+    return items
+      .filter(supplier => supplier.type === 'Supplier')
+      .map(supplier => ({ id: supplier.id, name: supplier.name, type: supplier.type }));
   } catch {
     return [];
   }

@@ -10,13 +10,12 @@
     "prepare:config": "tsx src/update-config.ts",
     "validate": "tsx src/validate.ts",
     "classify": "tsx src/classify.ts",
-    "upload": "tsx src/upload.ts",
     "api-client:smoke": "tsx src/k2046-api-client-smoke.ts",
     "test": "tsx --test src/business-rules.test.ts src/k2046.test.ts src/k2046-api-client.test.ts src/calculate.test.ts src/update-config.test.ts src/validate.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@kngzhi/k2046-api-client": "1.0.0",
+    "@kngzhi/k2046-api-client": "2.5.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
