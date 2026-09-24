@@ -19,11 +19,13 @@ verification work. Keep unrelated improvements out of scope. A small first slice
 is not completion when the requested outcome is broader.
 
 When a change introduces a replacement for an existing API, client, data source,
-or code path, migrate every caller and delete the old path in the same change.
-Do not add a compatibility shim, an adapter that reshapes the new result into the
-old one, or a parallel old-and-new path; those preserve the old contract's dead
-checks and defeat the migration. If the old contract must be kept for a stated
-reason, name the reason and the consumer that needs it.
+or code path, migrate every caller and delete the old path in the same change,
+or in the same planned stack when the PR size budget requires splitting. Do not
+leave a compatibility shim, an adapter that reshapes the new result into the old
+one, or a parallel old-and-new path behind; those preserve the old contract's dead
+checks and defeat the migration. A temporary parallel path is acceptable only as a
+stack layer whose removal is already planned. If the old contract must be kept for
+a stated reason, name the reason and the consumer that needs it.
 
 Verify in proportion to risk and run required repository checks. Start with the
 changed behavior; broaden when failures or unresolved concerns warrant it.

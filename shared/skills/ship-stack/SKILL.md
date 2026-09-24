@@ -1,6 +1,7 @@
 ---
 name: ship-stack
-description: Land a stack of pull requests safely. Record an independent PASS/FAIL verdict per PR bound to its patch-id, invalidate verdicts when a rebase or retarget changes the patch, and merge only the contiguous verified run from the bottom.
+description: Land a stack of pull requests when the user asks to merge or ship it, merging only the bottom run whose independent verdicts still match each PR's patch-id.
+disable-model-invocation: true
 ---
 
 # Ship a stack

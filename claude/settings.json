@@ -47,12 +47,7 @@
       "Bash(./apps/inventory_projection/venv/bin/python:*)",
       "mcp__zen__clink",
       "mcp__Context7__resolve-library-id",
-      "mcp__Context7__get-library-docs",
-      "mcp__pal__listmodels",
-      "mcp__pal__clink",
-      "mcp__pal__thinkdeep",
-      "mcp__pal__consensus",
-      "mcp__pal__chat"
+      "mcp__Context7__get-library-docs"
     ],
     "deny": [],
     "defaultMode": "plan"

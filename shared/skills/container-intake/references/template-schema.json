@@ -1,0 +1,84 @@
+{
+  "version": 2,
+  "columns": [
+    {
+      "header": "货号",
+      "field": "货号",
+      "legacyColumn": 1
+    },
+    {
+      "header": "条形码",
+      "field": "条形码",
+      "legacyColumn": 2
+    },
+    {
+      "header": "品名",
+      "field": "品名",
+      "legacyColumn": 3
+    },
+    {
+      "header": "图片",
+      "field": "图片",
+      "legacyColumn": 4
+    },
+    {
+      "header": "供应商",
+      "field": "供应商",
+      "legacyColumn": 16
+    },
+    {
+      "header": "计价单位",
+      "field": "计价单位",
+      "legacyColumn": 18
+    },
+    {
+      "header": "采购单价（元）",
+      "field": "单价",
+      "legacyColumn": 6
+    },
+    {
+      "header": "标准装箱数",
+      "field": "装箱数",
+      "legacyColumn": 7
+    },
+    {
+      "header": "整件数",
+      "field": "件数",
+      "legacyColumn": 8
+    },
+    {
+      "header": "散件数",
+      "field": "散件数",
+      "legacyColumn": 19
+    },
+    {
+      "header": "总数量",
+      "field": "总数量",
+      "legacyColumn": 10
+    },
+    {
+      "header": "货款合计（元）",
+      "field": "总价格",
+      "legacyColumn": 9
+    },
+    {
+      "header": "总体积（m³）",
+      "field": "总立方",
+      "legacyColumn": 15
+    }
+  ],
+  "config": [
+    "货柜号",
+    "发柜日期",
+    "ETA",
+    "海运费",
+    "内陆费",
+    "卸柜费",
+    "清关杂费",
+    "USD-CLP",
+    "USD-CNY",
+    "CNY-CLP",
+    "IVA",
+    "IVA计税货值USD"
+  ]
+}

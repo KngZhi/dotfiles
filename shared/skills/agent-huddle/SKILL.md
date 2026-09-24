@@ -24,6 +24,7 @@ These are CLI controls, not an OS-level isolation guarantee; treat the result
 as advice. The script's `AGENT_HUDDLE_ACTIVE` guard prevents nested consultations.
 If you are the consulted agent, answer directly.
 
-Consult at most three times per issue. After that, continue using the strongest
-available evidence if the decision is safe and within scope; ask the user only
-when a material uncertainty or required authority still prevents progress.
+Stop consulting when another round would not add new evidence or a different
+angle. Then continue with the strongest available evidence if the decision is
+safe and within scope; ask the user only when a material uncertainty or required
+authority still prevents progress.

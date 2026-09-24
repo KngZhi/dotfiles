@@ -1,6 +1,6 @@
 ---
 name: explain-like-five
-description: Explain the current topic simply when the user asks for ELI5, child-friendly language, or 讲简单点.
+description: Re-explain the current topic in a few plain-language sentences when the user asks for ELI5, child-friendly language, or 讲简单点.
 ---
 
 # Explain Like Five

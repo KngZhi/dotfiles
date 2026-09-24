@@ -1,6 +1,7 @@
 ---
 name: worklog
 description: Append a session summary to the daily worklog when the user asks to save or log the session.
+disable-model-invocation: true
 ---
 
 # Session Worklog

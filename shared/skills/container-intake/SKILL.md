@@ -1,18 +1,18 @@
 ---
 name: container-intake
-description: 在成本计算前按货柜整理微信附件、出货明细和费用凭证，套用标准模板、统一按打计价并列出待补项。
+description: 在成本计算前按货柜整理微信附件、出货明细和费用凭证，写入 Google 表格标准工作表、按商品销售单位整理并把问题标到单元格。
 ---
 
 # 货柜材料整理
 
 把分散的货柜材料整理成可核对的标准输入。用于找附件、按柜归档、整理出货表、
-补材料和核对船期；已整理好的表需要计算成本时，才交给 `container-cost`。
+补材料和核对船期；已整理好的表需要计算成本时，才导出交给 `container-cost`。
 整理稿、成本结果和 K2046 已入库是三个不同阶段。
 
 ## 收集与归属
 
 - 微信已下载附件：`~/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/chenjunwei590505_80b3/msg/file`。
-- 材料和未完成整理稿：`~/Library/CloudStorage/OneDrive-Personal/00_待整理货柜/<材料日期>_<供应商>_<柜号>/`。
+- 材料和材料索引：`~/Library/CloudStorage/OneDrive-Personal/00_待整理货柜/<材料日期>_<供应商>_<柜号>/`。
 - 优先复用已有目录、原件和索引，复制新增附件并保留来源。仅查用户指定范围；
   用户只要 K2046 缺录柜时，先只读核对对应采购记录，再收集这些柜的材料。
 
@@ -23,32 +23,81 @@ description: 在成本计算前按货柜整理微信附件、出货明细和费�
 使用现有本地附件和已授权的只读接口；查文件不需要关闭 SIP、提取微信密钥
 或发送消息。查询船期时读 [references/tracking.md](references/tracking.md)。
 
+## 工作表格：每柜一份 Google 表格
+
+整理稿是 Google 表格，不是本地 xlsx：脚本写入后用户在浏览器里立刻看到，用户手工修改后脚本直接读回。
+命令一律从本技能目录用 `uv run scripts/sheets.py ...` 执行；一次性授权、全部命令和单元格约定见
+[references/google-sheets.md](references/google-sheets.md)。
+
+```bash
+uv run scripts/sheets.py create <柜号> [--from <13列xlsx>]   # 新建，打印链接
+uv run scripts/sheets.py dump <柜号>                          # 读明细、config、批注（JSON）
+uv run scripts/sheets.py write <柜号> rows.json               # 重写明细并自动验证
+uv run scripts/sheets.py set <柜号> 'data!G5=12.5' 'config.海运费=2000'
+uv run scripts/sheets.py mark <柜号> 'data!A53' '43打混合包需拆分' --blocking
+uv run scripts/sheets.py validate <柜号>
+uv run scripts/sheets.py export <柜号> <目标.xlsx>            # 交接时才导出
+```
+
+以柜号为表格名，只通过脚本新建；同一柜已有表格时继续用，不重复新建。新建后把链接记入
+`~/repo/org/containers.org` 该柜的 `SHEET` 属性和材料索引。旧的本地整理稿用 `create --from`
+迁移一次后不再修改 xlsx 版本。整理稿不放进正式成本输入目录；`export` 只在交接时执行。
+
 ## 整理标准表
 
-读 [references/workbook.md](references/workbook.md)，按现有模板整理每柜一份工作表。
-本工作流交付的单价、装箱数和总数量统一按打；供应商按双/条的原件只作来源。
-保持原模板样式，不另加配色或混用数量单位。
+按 [references/workbook.md](references/workbook.md) 的唯一列契约整理每柜一份 data/config，不临时增减字段。
+
+- 单价、装箱数和总数量按商品实际销售及库存单位：袜子按打，女士内裤按条，不能统一换成打。
+  其他商品核对已确认业务口径和 K2046 档案，不从同柜其他商品推定单位。
+- 尾货按标准规格分为整件与散件，规则见工作簿契约的「单位与尾货」。
+- 发现错误、缺项或未决差异时，按[问题标注](references/workbook.md#问题标注)标到具体单元格；
+  不能只交付外部待补清单。
 
 只做归属、单位和数据核对，不运行成本计算、创建商品或采购单。
 可以复用 `container-cost` 的只读校验和纯单位转换函数；这不等于启动成本流程。
 
+## 验证
+
+`write` 和 `set` 后自动运行表内验证，把问题标到单元格并在终端打印状态；也可随时 `validate`。
+导出的 xlsx 或旧本地表用 `python3 scripts/validate_workbook.py <文件.xlsx> --report <报告.json>`。
+返回码：0 表内规则通过；1 有确定错误；2 有待补项；3 有需要对照来源判断的差异。
+修复后重新验证；缺资料可以停在整理中，但材料索引必须列出待补项，不标成「验证通过」。
+
+表内验证不做来源判断，`source_review` 始终为 `NOT_PERFORMED`，算术通过不代表可以交接。来源核对由 AI 完成：
+
+- 先直接读原件，确定同柜归属、源列含义、源/目标单位、标准包装、尾包对应、费用范围及采用哪个
+  冲突来源；记录依据和未决项。不能从生成表反推这些答案。
+- 用脚本执行已确定的转换与精确比较：逐行数量和金额、按单位合计、漏行/重复。这是本次整理使用的
+  脚本另行执行并保留的结果，不能声称验证器已做过。
+- 回到原件按[逐列验收](references/workbook.md#逐列验收)审查差异，逐项解释合理例外；无依据的继续待补。
+  不为消除差异而修改原值；系统无主条码等已确认例外记录证据并保留待补，不伪造值来通过检查。
+
+只有表内检查和来源核对均完成，才可声称逐列核对完成。
+
 ## 完成和交接
 
-每柜复用 `00_材料索引与待补.md`，记录原件位置、行号/单元格、计价单位依据、
+混合货号未拆清是整柜导入阻断项，不能仅列为待补后继续。像 `SC109/C109` 这样的混合行，必须先按
+原件或用户确认拆成确定的货号和各自数量，并核对拆分前后总数量、货值及体积守恒。不得把混合名称
+创建成新商品、任选一个货号、猜比例拆分，或跳过该行导入其余行来声称整柜完成；本地算术通过或
+服务器 dry-run/解析成功都不能解除这个阻断。只有确认是一个真实独立货号时才按该商品处理，不能
+仅凭名称含斜杠判定为混合。此项未解决前不得交接为可计算成本或可导入。
+
+每柜复用 `00_材料索引与待补.md`，记录表格链接、原件位置、行号/单元格、计价单位依据、
 数量与货值核对结果、费用范围、船期，以及真正需要补充的资料。
 索引明确标记「整理中」或「可计算成本」，不把默认费用都列成必须补账单。
 
 进入「可计算成本」需要：
 - 柜号和商品归属明确，整柜明细完整；混合包已拆清，货号可以明确匹配。
-- 采购单价、打数、装箱数、件数和成本分摊体积已核对；尾包及压缩体积有依据。
+- 采购单价、分单位数量、装箱数、件数和成本分摊体积已核对；尾包及压缩体积有依据。
 - 真实海运费已取得；内陆费有明确金额或承担方，分票与整柜范围已核清。
-  其余参数是否可用默认值，以 [成本参数规则](../container-cost/references/costing.md) 为准。
+  其余参数是否可用默认值，以 [成本参数规则](../container-cost/references/costing.md#费用来源与默认值) 为准。
 
-资料暂缺不妨碍完成本次整理。将整理稿留在该柜 `02_派生文件/<柜号>.xlsx`，
-列出缺项并更新 `~/repo/org/containers.org` 的 `SUPPLIER`、`XLSX` 和材料 checklist。
-未就绪的表不进入正式成本输入目录，不生成看似可入库的成本结果。
+资料暂缺不妨碍完成本次整理。整理稿留在 Google 表格，列出缺项并更新
+`~/repo/org/containers.org` 的 `SUPPLIER`、`SHEET` 和材料 checklist。
+未就绪的表不导出到正式成本输入目录，不生成看似可入库的成本结果。
 
-材料就绪且用户已要求继续计算时，才把标准表交到
-`~/Library/CloudStorage/OneDrive-Personal/source_files/containers/(<材料日期>)<柜号>.xlsx`，
-调用 `container-cost`。仅要求整理时，报告已就绪即可。已有授权不重复询问，
-资料缺失也不能当成已获答案。不要修改 `PO_IDS` 或将材料完成标记成入库完成。
+材料就绪且用户已要求继续计算时，才导出标准表：
+`uv run scripts/sheets.py export <柜号> '~/Library/CloudStorage/OneDrive-Personal/source_files/containers/(<材料日期>)<柜号>.xlsx'`，
+把路径写入 `XLSX` 属性，调用 `container-cost`。导出前表格里不应残留红标；
+导出后表格改动不会自动同步，须重新导出。仅要求整理时，报告已就绪即可。
+已有授权不重复询问，资料缺失也不能当成已获答案。不要修改 `PO_IDS` 或将材料完成标记成入库完成。

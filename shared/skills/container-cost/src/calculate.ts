@@ -1,8 +1,11 @@
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync } from 'fs';
 import { basename, extname, join } from 'path';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import * as XLSX from './xlsx.js';
 import { PATHS } from './config.js';
 import {
+  DEFAULT_IVA_GOODS_VALUE_USD,
   resolveContainerConfig,
   type ContainerConfig,
   type RateFetch,
@@ -21,10 +24,10 @@ export const REQUIRED_DATA_COLUMNS = [
 export const REQUIRED_CONFIG_PARAMS = ['海运费', '货柜号'] as const;
 export const OPTIONAL_CONFIG_PARAMS = [
   '内陆费', '内陆费承担方', '卸柜费', 'USD-CLP', 'USD-CNY', 'CNY-CLP',
-  '清关杂费', 'IVA',
+  '清关杂费', 'IVA', 'IVA计税货值USD',
 ] as const;
 
-export type PricingUnit = '双' | '打';
+export type PricingUnit = '双' | '打' | '条';
 
 export interface ContainerDataRow {
   货号: string;
@@ -34,6 +37,7 @@ export interface ContainerDataRow {
   装箱数: number;
   件数: number;
   总数量: number;
+  散件数?: number;
   总立方: number | null;
   立方?: number;
   供应商: string;
@@ -80,9 +84,15 @@ export function validateSheetNames(workbook: XLSX.WorkBook): void {
   }
 }
 
+const standardColumns = (JSON.parse(readFileSync(new URL(
+  '../../container-intake/references/template-schema.json', import.meta.url,
+), 'utf8')) as { columns: { header: string; field: string }[] }).columns;
+
 function normalizeDataHeader(value: unknown): string {
   const header = String(value ?? '').trim();
-  return header === '单价（元/打）' ? '单价' : header;
+  const standard = standardColumns.find(column => column.header === header);
+  if (standard) return standard.field;
+  return ['单价（元/打）', '单价（元/条）', '单价（元）'].includes(header) ? '单价' : header;
 }
 
 export function validateDataColumns(worksheet: XLSX.WorkSheet): void {
@@ -94,15 +104,36 @@ export function validateDataColumns(worksheet: XLSX.WorkSheet): void {
 
 export function loadExcelFile(filePath: string): XLSX.WorkBook {
   if (!existsSync(filePath)) throw new Error(`Excel 文件不存在：${filePath}`);
-  const workbook = XLSX.readFile(filePath, { cellFormula: false, cellDates: true });
+  const workbook = XLSX.readFile(filePath, { cellFormula: true, cellDates: true });
   validateSheetNames(workbook);
   return workbook;
 }
 
-export function readRawConfig(workbook: XLSX.WorkBook): Record<string, unknown> {
+export function readRawConfig(workbook: XLSX.WorkBook, ivaOverride?: number): Record<string, unknown> {
   const rows = XLSX.utils.sheet_to_json(workbook.Sheets.config, { header: 1 }) as unknown[][];
   const raw: Record<string, unknown> = {};
-  for (const row of rows) {
+  for (const [index, row] of rows.entries()) {
+    if (String(row[0] ?? '').trim() === 'IVA') {
+      if (ivaOverride !== undefined) { raw.IVA = ivaOverride; continue; }
+      const cell = workbook.Sheets.config[`B${index + 1}`];
+      if (cell?.t === 'e') throw new Error('IVA 必须是非负数；单元格含错误值');
+      const formula = String(cell?.f ?? '').replace(/\s/g, '');
+      const note = String(row[2] ?? '');
+      if (!formula && row[1] != null && row[1] !== ''
+        && (!Number.isFinite(Number(row[1])) || Number(row[1]) < 0)) {
+        throw new Error('IVA 必须是非负数');
+      }
+      const estimated = /估算|暂估|estimated/i.test(note);
+      const actual = /实际|actual/i.test(note);
+      // Generated formulas are estimates even when Excel supplies a positive cache.
+      const knownFormula = /\*0\.3\*0\.19/.test(formula)
+        || /^IF\(COUNT\(B\d+,B\d+,B\d+\)<>3,"",\(B\d+\+B\d+\)\*B\d+\*0\.19\)$/.test(formula);
+      if ((estimated && actual) || (actual && knownFormula) || (formula && !knownFormula)
+        || (!formula && Number(row[1]) > 0 && !estimated && !actual)) {
+        throw new Error('IVA 来源不明：标注 实际/估算，或用 prepare:config --iva 明确实际金额；不猜测旧缓存');
+      }
+      if (knownFormula || estimated) { raw.IVA = 0; continue; }
+    }
     if (row.length >= 2 && String(row[0] ?? '').trim() && row[1] !== '') {
       raw[String(row[0]).trim()] = row[1];
     }
@@ -136,8 +167,8 @@ function asNumber(value: unknown, column: string, row: number, nullable = false)
 function asPricingUnit(value: unknown, row: number): PricingUnit | undefined {
   const unit = asText(value);
   if (!unit) return undefined;
-  if (unit === '双' || unit === '打') return unit;
-  throw new Error(`data sheet 第 ${row} 行「计价单位」只支持 双 或 打，收到：${unit}`);
+  if (unit === '双' || unit === '打' || unit === '条') return unit;
+  throw new Error(`data sheet 第 ${row} 行「计价单位」只支持 双、打 或 条，收到：${unit}`);
 }
 
 export function loadDataSheet(workbook: XLSX.WorkBook): ContainerDataRow[] {
@@ -145,7 +176,9 @@ export function loadDataSheet(workbook: XLSX.WorkBook): ContainerDataRow[] {
   validateDataColumns(sheet);
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][];
   const headers = (rows[0] ?? []).map(normalizeDataHeader);
-  const dozenPriceHeader = (rows[0] ?? []).some(value => String(value ?? '').trim() === '单价（元/打）');
+  const priceHeader = (rows[0] ?? []).map(value => String(value ?? '').trim());
+  const headerUnit = priceHeader.includes('单价（元/打）') ? '打'
+    : priceHeader.includes('单价（元/条）') ? '条' : undefined;
   const result: ContainerDataRow[] = [];
 
   for (let index = 1; index < rows.length; index += 1) {
@@ -157,8 +190,9 @@ export function loadDataSheet(workbook: XLSX.WorkBook): ContainerDataRow[] {
       values[header] = row[column];
     });
     const excelRow = index + 1;
-    if (dozenPriceHeader && asPricingUnit(values.计价单位, excelRow) === '双') {
-      throw new Error(`data sheet 第 ${excelRow} 行「计价单位」与「单价（元/打）」冲突`);
+    const pricingUnit = asPricingUnit(values.计价单位, excelRow);
+    if (headerUnit && pricingUnit && pricingUnit !== headerUnit) {
+      throw new Error(`data sheet 第 ${excelRow} 行「计价单位」与「单价（元/${headerUnit}）」冲突`);
     }
     const productNumber = asText(values.货号);
     if (!productNumber) throw new Error(`data sheet 第 ${excelRow} 行缺少货号`);
@@ -171,6 +205,8 @@ export function loadDataSheet(workbook: XLSX.WorkBook): ContainerDataRow[] {
       装箱数: asNumber(values.装箱数, '装箱数', excelRow) as number,
       件数: asNumber(values.件数, '件数', excelRow) as number,
       总数量: asNumber(values.总数量, '总数量', excelRow) as number,
+      ...(values.散件数 === undefined || values.散件数 === '' ? {}
+        : { 散件数: asNumber(values.散件数, '散件数', excelRow) as number }),
       总立方: asNumber(values.总立方, '总立方', excelRow, true),
       供应商: asText(values.供应商),
       计价单位: asPricingUnit(values.计价单位, excelRow),
@@ -193,18 +229,20 @@ function requireDozenDivisible(value: number, column: '装箱数' | '总数量',
  *
  * 原始材料按「双」输入时，在任何成本聚合之前转换单价、装箱数和总数量，并将
  * 计价单位改为「打」。因此再次调用本函数不会重复换算。旧模板没有计价单位时
- * 保持原值，避免猜测非袜子商品的单位。
+ * 保持原值，避免猜测非袜子商品的单位。女士内裤显式标记「条」，保留原价及数量。
  */
 export function normalizePricingUnits(dataRows: ContainerDataRow[]): ContainerDataRow[] {
   return dataRows.map(row => {
     if (row.计价单位 !== '双') return { ...row };
     requireDozenDivisible(row.装箱数, '装箱数', row.货号);
     requireDozenDivisible(row.总数量, '总数量', row.货号);
+    if (row.散件数 !== undefined) requireDozenDivisible(row.散件数, '总数量', row.货号);
     return {
       ...row,
       单价: Number((row.单价 * 12).toFixed(10)),
       装箱数: row.装箱数 / 12,
       总数量: row.总数量 / 12,
+      ...(row.散件数 === undefined ? {} : { 散件数: row.散件数 / 12 }),
       计价单位: '打',
     };
   });
@@ -294,15 +332,10 @@ export async function calculateCosts(
     row => row.单价 * row.总数量 * params['CNY-CLP'],
   );
   const sumAmount = rowAmounts.reduce((sum, amount) => sum + amount, 0);
-  const totalGoodsValueCny = dataWithVolumes.reduce(
-    (sum, row) => sum + row.单价 * row.总数量,
-    0,
-  );
-
   let iva = params.IVA;
   if (iva === 0) {
-    iva = (totalGoodsValueCny / params['USD-CNY'] + params.海运费)
-      * params['USD-CLP'] * 0.3 * 0.19;
+    iva = ((params.ivaGoodsValueUsd ?? DEFAULT_IVA_GOODS_VALUE_USD) + params.海运费)
+      * params['USD-CLP'] * 0.19;
   }
 
   const results = dataWithVolumes.map((row, index) => {
@@ -329,6 +362,7 @@ export async function calculateCosts(
       packingBigBag: product?.packingBigBag,
       packingBag: product?.packingBag,
       件数: row.件数,
+      散件数: row.散件数 ?? 0,
       仓库: 'lazon',
       category1: product?.categoryParentName,
       category2: product?.categoryName,
@@ -370,6 +404,7 @@ export function generateOutput(
   const baseName = basename(inputFileName, extname(inputFileName));
   const outputPath = join(outputDirectory, `成本计算_${baseName}_${timestamp}.xlsx`);
   XLSX.writeFile(workbook, outputPath);
+  execFileSync('python3', [fileURLToPath(new URL('./highlight-result.py', import.meta.url)), outputPath]);
   return outputPath;
 }
 

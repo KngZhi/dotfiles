@@ -16,7 +16,7 @@ and PR template, related Issues, and available verification. Explain only what
 this PR delivers; distinguish changes already in its base or left to other PRs.
 
 Update the existing PR for follow-up work on the same feature. Follow repository
-size and stack rules; use `gh-stack` when splitting dependent work is necessary.
+size and stack rules; use `gh stack` when splitting dependent work is necessary.
 A description rewrite authorizes the PR edit, not additional code changes. A
 request to submit a PR authorizes pushing the intended branch and creating or
 updating its PR. Reuse that authorization without asking again.

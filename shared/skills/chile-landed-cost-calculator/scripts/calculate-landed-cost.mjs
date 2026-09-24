@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { fetchBocUsdCny, BOC_RATES_URL, BOC_USD_QUOTE_COLUMN } from './boc-exchange-rate.mjs';
 
+export const DEFAULT_IVA_GOODS_VALUE_USD = 18_000;
 export const DEFAULT_UNLOADING_FEE_CLP = 125_000;
 export const DEFAULT_CLEARANCE_MISC_FEE_CLP = 1_500_000;
 export const DEFAULT_SELF_PAID_INLAND_FEE_CNY = 5_500;
@@ -70,6 +71,7 @@ export async function resolveCostConfig(raw, rateFetch = fetchUsdClp, usdCnyFetc
   const cnyClp = numberValue(raw.cnyClp, 'cnyClp', { positive: true })
     ?? (usdClp + EXCHANGE_FEE_CLP_PER_USD) / usdCny;
   const ivaClp = numberValue(raw.ivaClp, 'ivaClp') ?? 0;
+  const ivaGoodsValueUsd = numberValue(raw.ivaGoodsValueUsd, 'ivaGoodsValueUsd') ?? DEFAULT_IVA_GOODS_VALUE_USD;
 
   return {
     seaFreightUsd,
@@ -80,6 +82,7 @@ export async function resolveCostConfig(raw, rateFetch = fetchUsdClp, usdCnyFetc
     cnyClp,
     usdCny,
     ivaClp,
+    ivaGoodsValueUsd,
     provenance: {
       seaFreightUsd: { kind: 'explicit' },
       inlandFreightCny: hasExplicitInland
@@ -100,6 +103,7 @@ export async function resolveCostConfig(raw, rateFetch = fetchUsdClp, usdCnyFetc
       usdCny: hasExplicitUsdCny
         ? { kind: 'explicit' }
         : { kind: 'fetched', detail: `${BOC_RATES_URL} ${BOC_USD_QUOTE_COLUMN}/100` },
+      ivaGoodsValueUsd: { kind: hasValue(raw.ivaGoodsValueUsd) ? 'explicit' : 'default', detail: String(ivaGoodsValueUsd) },
       ivaClp: ivaClp === 0
         ? { kind: 'estimated', detail: 'zero triggers estimate' }
         : { kind: 'explicit' },
@@ -148,8 +152,8 @@ export function calculateLandedCosts(input) {
   const totalGoodsValueClp = totalGoodsValueCny * config.cnyClp;
   const ivaWasEstimated = config.ivaClp === 0;
   const ivaTotalClp = ivaWasEstimated
-    ? (totalGoodsValueCny / config.usdCny + config.seaFreightUsd)
-      * config.usdClp * 0.3 * 0.19
+    ? ((numberValue(config.ivaGoodsValueUsd, 'ivaGoodsValueUsd') ?? DEFAULT_IVA_GOODS_VALUE_USD) + config.seaFreightUsd)
+      * config.usdClp * 0.19
     : config.ivaClp;
 
   const calculatedRows = rows.map(row => {

@@ -11,8 +11,9 @@
     "validate": "tsx src/validate.ts",
     "classify": "tsx src/classify.ts",
     "api-client:smoke": "tsx src/k2046-api-client-smoke.ts",
-    "test": "tsx --test src/business-rules.test.ts src/k2046.test.ts src/k2046-api-client.test.ts src/calculate.test.ts src/update-config.test.ts src/validate.test.ts",
-    "typecheck": "tsc --noEmit"
+    "test": "tsx --test src/business-rules.test.ts src/k2046.test.ts src/k2046-api-client.test.ts src/calculate.test.ts src/update-config.test.ts src/validate.test.ts src/import-checked.test.ts",
+    "typecheck": "tsc --noEmit",
+    "import:checked": "tsx src/import-checked.ts"
   },
   "dependencies": {
     "@kngzhi/k2046-api-client": "2.5.0",

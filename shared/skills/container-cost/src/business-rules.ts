@@ -1,6 +1,7 @@
 import { fetchBocUsdCny } from '../../chile-landed-cost-calculator/scripts/boc-exchange-rate.mjs';
 export { fetchBocUsdCny };
 
+export const DEFAULT_IVA_GOODS_VALUE_USD = 18_000;
 export const DEFAULT_UNLOADING_FEE_CLP = 125_000;
 export const DEFAULT_PRE_ARRIVAL_CLEARANCE_MISC_FEE_CLP = 1_500_000;
 export const DEFAULT_SELF_PAID_INLAND_FEE_CNY = 5_500;
@@ -18,6 +19,7 @@ export interface ContainerConfig {
   'CNY-CLP': number;
   清关杂费: number;
   IVA: number;
+  ivaGoodsValueUsd?: number;
   货柜号: string;
   内陆费承担方?: InlandPayer;
 }
@@ -125,6 +127,7 @@ export async function resolveContainerConfig(
     'CNY-CLP': cnyClp,
     清关杂费,
     IVA: optionalNumber(raw, 'IVA') ?? 0,
+    ivaGoodsValueUsd: optionalNumber(raw, 'IVA计税货值USD') ?? DEFAULT_IVA_GOODS_VALUE_USD,
     货柜号,
     ...(payer ? { 内陆费承担方: payer } : {}),
   };

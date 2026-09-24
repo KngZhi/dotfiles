@@ -1,5 +1,6 @@
 import * as XLSX from './xlsx.js';
 import {
+  DEFAULT_IVA_GOODS_VALUE_USD,
   EXCHANGE_FEE_CLP_PER_USD,
   DEFAULT_PRE_ARRIVAL_CLEARANCE_MISC_FEE_CLP,
   DEFAULT_SELF_PAID_INLAND_FEE_CNY,
@@ -28,6 +29,7 @@ function parseArgs(args: string[]): CliOptions {
     '--usd-clp': 'USD-CLP',
     '--usd-cny': 'USD-CNY',
     '--iva': 'IVA',
+    '--iva-goods-value-usd': 'IVA计税货值USD',
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = mapping[args[index]];
@@ -53,6 +55,12 @@ export async function prepareConfigValues(
     result['清关杂费'] = DEFAULT_PRE_ARRIVAL_CLEARANCE_MISC_FEE_CLP;
   }
   result.IVA ??= 0;
+  if (!Number.isFinite(Number(result.IVA)) || Number(result.IVA) < 0) throw new Error('IVA 必须是非负数');
+  if (result['IVA计税货值USD'] == null || result['IVA计税货值USD'] === '') {
+    result['IVA计税货值USD'] = DEFAULT_IVA_GOODS_VALUE_USD;
+  }
+  const basis = Number(result['IVA计税货值USD']);
+  if (!Number.isFinite(basis) || basis < 0) throw new Error('IVA计税货值USD 必须是非负数');
 
   if (result['内陆费'] === undefined || result['内陆费'] === '') {
     const payer = normalizeInlandPayer(result['内陆费承担方']);
@@ -86,9 +94,10 @@ export function writeConfigSheet(
   for (const [key, value] of Object.entries(values)) {
     const index = indexByKey.get(key);
     if (index === undefined) {
-      rows.push([key, value]);
+      rows.push([key, value, key === 'IVA' ? (Number(value) > 0 ? 'CLP，实际' : 'CLP，估算') : '']);
     } else {
       rows[index][1] = value;
+      if (key === 'IVA') rows[index][2] = Number(value) > 0 ? 'CLP，实际' : 'CLP，估算';
     }
   }
   workbook.Sheets.config = XLSX.utils.aoa_to_sheet(rows);
@@ -97,9 +106,9 @@ export function writeConfigSheet(
 async function main(): Promise<void> {
   try {
     const options = parseArgs(process.argv.slice(2));
-    const workbook = XLSX.readFile(options.file, { cellFormula: false, cellDates: true });
+    const workbook = XLSX.readFile(options.file, { cellFormula: true, cellDates: true });
     if (!workbook.Sheets.config) throw new Error('找不到 config sheet');
-    const current = readRawConfig(workbook);
+    const current = readRawConfig(workbook, options.values.IVA as number | undefined);
     const prepared = await prepareConfigValues(current, options.values);
     writeConfigSheet(workbook, prepared);
     XLSX.writeFile(workbook, options.file);
