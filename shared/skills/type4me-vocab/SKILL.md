@@ -5,39 +5,54 @@ description: Manage Type4Me speech-recognition corrections, snippet mappings, an
 
 # Type4Me vocabulary
 
-Use this skill to correct Type4Me vocabulary on macOS. For Apple Reminders tasks,
-use the `reminders-cli` skill or Type4Me's Mac Actions mode.
+Type4Me keeps two user vocabularies in `~/Library/Application Support/Type4Me/`:
 
-Read the [official procedure](references/upstream-SKILL.md) when making a
-vocabulary change. It contains the intent/variant guidance, JSON examples, and
-reload procedure. Apply the compatibility corrections below to those examples.
-[Upstream source and pinned revision](SOURCE.md) are retained with the original
-README and MIT license.
+- **Snippets** (`snippets.json`) replace recognized text after ASR. Matching ignores
+  case and whitespace. Every correction goes here.
+- **Hotwords** (`hotwords.json`, mirrored to `hotwords.txt`) bias the ASR model.
+  They help only for terms already in the model's vocabulary: standard words,
+  well-known brands, common technical abbreviations, and common Chinese words.
+  Coined spellings (Type4Me), very recent names, and arbitrary letter strings get
+  snippets only.
 
-## Installed-version compatibility
+## Choose the entries
 
-For Type4Me v2.8.0, inspect `/Applications/Type4Me.app` and
-`~/Library/Application Support/Type4Me/` before writing. The app's actual install
-URL is https://github.com/joewongjc/type4me; the upstream example's
-`anthropics/type4me` link is a typo. A missing `builtin-snippets.json` by itself
-does not establish that the profile is incomplete.
+Take the correct term and any misrecognition the user reported, then add the
+plausible ASR variants: homophones (Claude → cloud), wrong syllable splits
+(GitHub → git hub), vowel or consonant slips, dropped or added endings, merged
+words, and transliterations in Chinese context (Cursor → 克色). Usually a handful
+is enough; each variant should be a realistic mishearing that cannot collide
+with ordinary text the user wants kept.
 
-User `snippets.json` holds an array of `{ "trigger": "...", "replacement": "..." }`;
-user `hotwords.json` holds an array of strings. This release uses the user arrays
-for effective vocabulary. Read built-in files for reference, keep them unchanged,
-and deduplicate against the user arrays: a term present only in a built-in file
-still needs a user entry. Normalize all whitespace and case for trigger matching.
-A trigger already mapped to a different output is a conflict to resolve from the
-user's requested correction, rather than silently skipping it.
+## Write with the script
 
-## Write and verify
+Run from this skill directory. Check existing entries first, preview, then write:
 
-Preserve existing entries and back up files that will change. Validate the loaded
-JSON shape and write each changed file atomically. For this release, generate
-`hotwords.txt` from effective user hotwords rather than merging inactive built-ins.
-Use only plausible correction variants that retain the user's intended meaning.
+```bash
+python3 scripts/vocab.py show --grep "ghostty"
+python3 scripts/vocab.py add --snippet 'ghosty=>Ghostty' --snippet 'ghost tea=>Ghostty' --hotword Ghostty --dry-run
+python3 scripts/vocab.py add --snippet 'ghosty=>Ghostty' --snippet 'ghost tea=>Ghostty' --hotword Ghostty
+python3 scripts/vocab.py remove --trigger 'ghost tea' --hotword Ghostty
+```
 
-After writing, run the upstream reload procedure when supported and reread the
-user JSON to confirm the intended trigger/output and hotwords. An `open` exit code
-confirms URL dispatch; report a successful app reload only with app evidence.
-Report the added or updated mappings and any unresolved ambiguity concisely.
+The script validates the files, backs up each changed file as `<name>.bak-<timestamp>`,
+writes atomically, regenerates `hotwords.txt` from the user hotwords, reads the
+result back, and dispatches `type4me://reload-vocabulary` when the app supports it.
+It deduplicates against the user files only: a term present only in a built-in
+file still needs a user entry, and built-in files are never written.
+
+An existing trigger mapped to a different replacement is a conflict; the script
+writes nothing and exits 1. Use `--replace` when the user's requested correction
+supersedes the old mapping; otherwise drop that variant.
+
+The storage behavior was verified against Type4Me 2.8.0 (see [SOURCE.md](SOURCE.md)).
+`show` prints the installed version; for a different version, check the release's
+`SnippetStorage.swift` and `HotwordStorage.swift` before writing.
+
+## Report
+
+Report the added, updated, skipped, and conflicting entries and whether a hotword
+was added and why. A successful `open` only confirms the reload URL was dispatched;
+claim the app reloaded only with app evidence. Snippets apply on the next
+recording; without the URL scheme, local hotwords need the refresh button in
+Type4Me's vocabulary settings or an app restart.
