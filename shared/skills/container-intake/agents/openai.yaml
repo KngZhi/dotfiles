@@ -1,4 +1,4 @@
 interface:
   display_name: "货柜材料整理"
   short_description: "成本计算前归档货柜材料、核对明细，按模板核对商品单位与待补项"
-  default_prompt: "Use $container-intake to organize these container documents into the existing template, normalize prices and quantities to dozens, and list what is still missing before costing."
+  default_prompt: "Use $container-intake to organize these container documents into the per-container Google Sheet, keep each product in its sales and stock unit, and mark what is still missing before costing."

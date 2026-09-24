@@ -26,7 +26,7 @@ Callers must normalize pairs/dozens and repair or allocate missing CBM before th
 | `unloadingFeeClp` | no | CLP 125,000 |
 | `clearanceMiscFeeClp` | no | Pre-arrival estimate CLP 1,500,000 |
 | `usdClp` | no | Fetch live from `open.er-api.com` when absent; failure is fatal |
-| `cnyClp` | no | `(usdClp + 12) / usdCny`; 12 CLP fee per USD |
+| `cnyClp` | no | `(usdClp + 12) / usdCny`; 12 CLP fee per USD applies only to CNY goods and inland freight; an explicit actual rate wins |
 | `usdCny` | no | Bank of China USD spot selling quote divided by 100; failure is fatal |
 | `ivaClp` | no | 0 means estimate using the shared IVA formula |
 | `ivaGoodsValueUsd` | no | estimated taxable goods value per container, default 18000 USD; freight added separately |
@@ -78,7 +78,6 @@ unrounded landed cost/unit
 landed cost/unit = Math.round(unrounded landed cost/unit)
 ```
 
-
 The result includes resolved config and per-parameter provenance (`explicit`,
 `default`, `derived`, `fetched`, or `estimated`), totals and `ivaWasEstimated`,
 row allocation shares, each cost component, and unrounded/rounded unit costs.
@@ -88,5 +87,3 @@ freight and zero supplier price are rejected. Normalize units and provide all
 rows sharing the cost pool. Zero-total-CBM input receives no volume-based charges;
 check whether that is legitimate before relying on the result. Components must
 sum to the unrounded landed cost and container allocation shares must reconcile.
-
-The 12 CLP per USD fee applies to the derived CNY-to-CLP rate for CNY goods and inland freight. Keep `usdClp` unchanged for USD sea freight and IVA estimates. An explicit actual `cnyClp` overrides derivation; a known legacy default of 135 should be replaced when preparing a workbook.
