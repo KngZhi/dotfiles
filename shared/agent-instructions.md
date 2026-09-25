@@ -9,6 +9,29 @@
 - `trello` ([mheap/trello-cli](https://github.com/mheap/trello-cli)) is installed
   and authenticated for Trello boards, lists, and cards.
 
+## Issue tracking in Linear
+
+Engineering issues for KngZhi repositories live in Linear, workspace SAOKO, team
+**Enginer** (key `ENG`), one project per repository; the repository's
+`docs/agents/issue-tracker.md` names its project. Team **SAOKO** holds business
+work (suppliers, purchasing) and never gets engineering issues. GitHub keeps
+code, pull requests and CI.
+
+- Triage roles map to Enginer's own fields, not extra labels: `Triage`
+  (needs triage), `等回复` (needs info), `Todo` delegated to an agent (ready for
+  agent), `Todo` assigned to a human (ready for human), `Canceled` or
+  `Duplicate` (won't fix). Category uses the workspace labels `Bug`, `Feature`,
+  `Improvement`, and `RFC` for design discussion.
+- Never write a bare `#123` in a Linear body: the workspace GitHub integration
+  links it to the wrong repository. Write `GH-123` or the full URL.
+- For settings the Linear MCP tools cannot change (teams, workflow states), use
+  the GraphQL API with the SAOKO key `op://DEV/Linear Cli SAOKO/credential`,
+  passed only through an environment variable. The `Linear API` item belongs to
+  a different workspace.
+- The agent-runtime-trigger pipeline still dispatches from a GitHub Issue with
+  the `run:develop` label. Until it dispatches from Linear, an executable issue
+  gets a GitHub copy with the same contract, linked both ways.
+
 ## Pull request size and stacks
 
 This section applies only to work that will land as a pull request. Direct
