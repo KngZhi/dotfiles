@@ -111,6 +111,40 @@
         }
       },
       "isActive": true
+    },
+    {
+      "name": "mac-automatic-deploy",
+      "repositoryPath": "{{HOME}}/repo/mac-automatic-deploy",
+      "baseBranch": "main",
+      "linearWorkspaceId": "50d156c2-b0f2-4692-9706-6caff58e7d8e",
+      "projectKeys": [
+        "mac-automatic-deploy：本机服务统一自动部署"
+      ],
+      "labelPrompts": {
+        "debugger": {
+          "labels": [
+            "Bug"
+          ]
+        },
+        "builder": {
+          "labels": [
+            "Feature",
+            "Improvement"
+          ]
+        },
+        "scoper": {
+          "labels": [
+            "RFC"
+          ],
+          "allowedTools": "readOnly"
+        },
+        "orchestrator": {
+          "labels": [
+            "Orchestrator"
+          ]
+        }
+      },
+      "isActive": true
     }
   ],
   "claudeDefaultModel": "claude-opus-5-5",
