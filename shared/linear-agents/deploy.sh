@@ -26,6 +26,7 @@ if [ ! -d "$RUNTIME/node_modules" ] || [ "$(cat "$RUNTIME/.lock-sha" 2>/dev/null
 else
   echo "runtime: up to date"
 fi
+for patch in "$HERE"/patches/*.sh; do bash "$patch" "$RUNTIME/node_modules"; done
 
 # 2. Routing config: template keys replace, everything else in config.json
 #    (Cyrus's own token store, refreshed at runtime) is kept. Cyrus watches

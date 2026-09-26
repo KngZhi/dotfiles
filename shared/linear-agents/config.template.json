@@ -42,8 +42,7 @@
           ]
         }
       },
-      "isActive": true,
-      "mcpConfigPath": "{{HOME}}/repo/dotfiles/shared/linear-agents/mcp/browser.json"
+      "isActive": true
     },
     {
       "name": "proving-ground",
@@ -77,8 +76,7 @@
           ]
         }
       },
-      "isActive": true,
-      "mcpConfigPath": "{{HOME}}/repo/dotfiles/shared/linear-agents/mcp/browser.json"
+      "isActive": true
     },
     {
       "name": "chile-mono",
@@ -112,8 +110,7 @@
           ]
         }
       },
-      "isActive": true,
-      "mcpConfigPath": "{{HOME}}/repo/dotfiles/shared/linear-agents/mcp/browser.json"
+      "isActive": true
     }
   ],
   "claudeDefaultModel": "claude-opus-5-5",

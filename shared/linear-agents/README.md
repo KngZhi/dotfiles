@@ -56,12 +56,17 @@ browser itself is downloaded once per machine with `agent-browser install`
 (lands in `~/.agent-browser/`); `agent-browser doctor` checks it. Logging in
 to production systems and any write there stays a human action.
 
-Verified 2026-09-26: the Claude runner drives it (screenshot attached to the
-issue in two minutes). The Codex runner cannot: Cyrus 0.2.72 starts every
-Codex thread in Codex's `workspace-write` sandbox with no config key to relax
-it, so Chrome cannot write `~/.agent-browser` or launch at all. Give
-browser-dependent steps (UI verification, visual bug reproduction) to
-`[agent=claude]` until upstream makes the Codex sandbox mode configurable.
+Both runners drive it (verified 2026-09-26: each attached a homepage
+screenshot within minutes). Codex needs `patches/codex-sandbox-mode.sh`:
+Cyrus 0.2.72 starts every Codex thread in Codex's `workspace-write` seatbelt
+with no config key to relax it, and Chrome cannot launch in there whatever
+the writable roots (checked with `codex sandbox`); the patch makes the mode
+follow `CYRUS_CODEX_SANDBOX_MODE`, which `run.sh` sets to
+`danger-full-access`, the same footing the Claude runner already has.
+`deploy.sh` re-applies every `patches/*.sh` after `npm ci`. Codex's own
+"Browser use" (the ChatGPT app's `node_repl` MCP server in `~/.codex`) asks
+permission per URL and is auto-denied unattended, so the Agent guidance tells
+agents to use `agent-browser` instead.
 
 ## Bridge
 
