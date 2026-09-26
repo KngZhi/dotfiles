@@ -10,7 +10,7 @@
   "childHandoff": true,
   "review": {
     "mention": "claude",
-    "prompt": "请只读审查 {pr} ：对照本 issue 的验收标准和仓库 AGENTS.md，独立跑仓库声明的检查，只列阻塞项/非阻塞项，不改代码、不提交。审完在本 issue 另发一条顶层评论：有阻塞项就以 `@codex1` 开头并列出清单；没有阻塞项就以「审查通过」开头，不要 @ 任何人。"
+    "prompt": "请用 review 技能审查 {pr} ：按技能里的每个 lens 并行起子代理，合并后在本 issue 另发一条顶层评论——有阻塞项以 `@codex1` 开头并列清单，无阻塞项以「审查通过」开头且不要 @ 任何人。只读，不改代码、不提交。"
   },
   "relay": true,
   "triage": {
