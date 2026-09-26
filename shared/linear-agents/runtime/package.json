@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@playwright/mcp": "^0.0.82",
     "agent-browser": "^0.38.1",
     "cyrus-ai": "0.2.72",
     "oauth4webapi": "3.8.8"
