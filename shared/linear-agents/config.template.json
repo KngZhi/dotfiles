@@ -1,0 +1,125 @@
+{
+  "repositories": [
+    {
+      "name": "chile-ops",
+      "repositoryPath": "{{HOME}}/repo/chile-ops",
+      "baseBranch": "main",
+      "linearWorkspaceId": "50d156c2-b0f2-4692-9706-6caff58e7d8e",
+      "teamKeys": [
+        "SAO"
+      ],
+      "isActive": true
+    },
+    {
+      "name": "agent-runtime-trigger",
+      "repositoryPath": "{{HOME}}/repo/agent-runtime-trigger",
+      "baseBranch": "main",
+      "linearWorkspaceId": "50d156c2-b0f2-4692-9706-6caff58e7d8e",
+      "projectKeys": [
+        "Agent 流水线（agent-runtime-trigger）"
+      ],
+      "labelPrompts": {
+        "debugger": {
+          "labels": [
+            "Bug"
+          ]
+        },
+        "builder": {
+          "labels": [
+            "Feature",
+            "Improvement"
+          ]
+        },
+        "scoper": {
+          "labels": [
+            "RFC"
+          ],
+          "allowedTools": "readOnly"
+        },
+        "orchestrator": {
+          "labels": [
+            "Orchestrator"
+          ]
+        }
+      },
+      "isActive": true
+    },
+    {
+      "name": "proving-ground",
+      "repositoryPath": "{{HOME}}/repo/proving-ground",
+      "baseBranch": "main",
+      "linearWorkspaceId": "50d156c2-b0f2-4692-9706-6caff58e7d8e",
+      "projectKeys": [
+        "proving-ground"
+      ],
+      "labelPrompts": {
+        "debugger": {
+          "labels": [
+            "Bug"
+          ]
+        },
+        "builder": {
+          "labels": [
+            "Feature",
+            "Improvement"
+          ]
+        },
+        "scoper": {
+          "labels": [
+            "RFC"
+          ],
+          "allowedTools": "readOnly"
+        },
+        "orchestrator": {
+          "labels": [
+            "Orchestrator"
+          ]
+        }
+      },
+      "isActive": true
+    },
+    {
+      "name": "chile-mono",
+      "repositoryPath": "{{HOME}}/repo/chile-mono",
+      "baseBranch": "master",
+      "linearWorkspaceId": "50d156c2-b0f2-4692-9706-6caff58e7d8e",
+      "projectKeys": [
+        "chile-mono"
+      ],
+      "labelPrompts": {
+        "debugger": {
+          "labels": [
+            "Bug"
+          ]
+        },
+        "builder": {
+          "labels": [
+            "Feature",
+            "Improvement"
+          ]
+        },
+        "scoper": {
+          "labels": [
+            "RFC"
+          ],
+          "allowedTools": "readOnly"
+        },
+        "orchestrator": {
+          "labels": [
+            "Orchestrator"
+          ]
+        }
+      },
+      "isActive": true
+    }
+  ],
+  "claudeDefaultModel": "claude-opus-5-5",
+  "claudeDefaultFallbackModel": "claude-sonnet-5",
+  "codexDefaultModel": "gpt-6-sol",
+  "userAccessControl": {
+    "allowedUsers": [
+      "7e95a55b-c171-40a0-bd84-1d5d94d14e59"
+    ],
+    "blockBehavior": "silent"
+  }
+}

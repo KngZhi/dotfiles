@@ -1,0 +1,15 @@
+{
+  "teams": ["ENG"],
+  "labelTriggers": {
+    "Development": { "id": "8122d78c-cf48-4da9-b635-2d9a5734f27b", "name": "Codex本机" }
+  },
+  "agents": {
+    "8d5b2ddc-dcec-45a1-8d89-c84085d575e9": "claude",
+    "8122d78c-cf48-4da9-b635-2d9a5734f27b": "codex1"
+  },
+  "childHandoff": true,
+  "triage": {
+    "mention": "claude",
+    "prompt": "请用 triage 技能对本 issue 做只读分诊：分类、估大小、列出需要作者决定的问题、建议验收标准和下一步；要拆就给拆分建议。不改代码、不建 issue。"
+  }
+}

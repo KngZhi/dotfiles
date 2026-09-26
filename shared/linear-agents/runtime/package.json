@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "cyrus-ai": "0.2.72",
+    "oauth4webapi": "3.8.8"
+  },
+  "overrides": {
+    "@openai/codex": "0.156.1",
+    "@openai/codex-sdk": "0.156.1"
+  }
+}
