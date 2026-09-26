@@ -46,6 +46,16 @@ runners; Cyrus symlinks them for Codex), the instance's
 investigate / verify-and-ship / summarize, and for Claude everything under
 `~/.claude/skills`.
 
+## Browser
+
+`run.sh` sets `CYRUS_BROWSER_USE_ENABLED=true` and puts the runtime's
+`node_modules/.bin` on `PATH`, so both runners are told they can drive
+`agent-browser` (a Playwright CLI pinned in `runtime/package.json`) against a
+local Chromium for UI verification, screenshots and bug reproduction. The
+browser itself is downloaded once per machine with `agent-browser install`
+(lands in `~/.agent-browser/`); `agent-browser doctor` checks it. Logging in
+to production systems and any write there stays a human action.
+
 ## Bridge
 
 Linear opens an agent session only for actions a human takes; the same
