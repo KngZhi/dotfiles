@@ -56,6 +56,13 @@ browser itself is downloaded once per machine with `agent-browser install`
 (lands in `~/.agent-browser/`); `agent-browser doctor` checks it. Logging in
 to production systems and any write there stays a human action.
 
+Verified 2026-09-26: the Claude runner drives it (screenshot attached to the
+issue in two minutes). The Codex runner cannot: Cyrus 0.2.72 starts every
+Codex thread in Codex's `workspace-write` sandbox with no config key to relax
+it, so Chrome cannot write `~/.agent-browser` or launch at all. Give
+browser-dependent steps (UI verification, visual bug reproduction) to
+`[agent=claude]` until upstream makes the Codex sandbox mode configurable.
+
 ## Bridge
 
 Linear opens an agent session only for actions a human takes; the same
