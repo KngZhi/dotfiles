@@ -118,6 +118,7 @@
       "baseBranch": "main",
       "linearWorkspaceId": "50d156c2-b0f2-4692-9706-6caff58e7d8e",
       "projectKeys": [
+        "本机服务自动部署（精简版）",
         "mac-automatic-deploy：本机服务统一自动部署"
       ],
       "labelPrompts": {
