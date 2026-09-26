@@ -80,7 +80,20 @@ workspace owner, using the owner's personal API key:
   `labelTriggers` → it is delegated to that agent (so `Development` starts
   Codex本机);
 - an agent creates a sub-issue and delegates it (orchestrator mode) → the
-  bridge @mentions the delegate so the child session actually starts.
+  bridge @mentions the delegate so the child session actually starts;
+- a pull request gets attached to an issue that carries a trigger label →
+  the bridge @mentions the reviewer (`review` in `bridge.json`), whose
+  prompt says to open its verdict with `@codex1` only when there are
+  blockers;
+- an agent posts a top-level comment that opens with `@<other agent>` → the
+  bridge repeats that mention as the owner (`relay`), which is how review
+  findings reach the coder;
+- a human's new issue lands in Triage → the bridge @mentions the triage
+  agent (`triage`), which runs the read-only `triage` skill.
+
+The webhook therefore subscribes to `Issue`, `Comment` and `Attachment`
+events. One label is the only click: label → implement → PR → review →
+fix → CI, then a human merges.
 
 Every action leaves a `[bridge:<rule>]` comment on the issue, which is also
 the idempotency check, so silence on an issue means the bridge did not act.

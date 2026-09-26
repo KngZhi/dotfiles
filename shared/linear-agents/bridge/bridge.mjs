@@ -58,8 +58,20 @@ function verified(raw, signature) {
 
 // Which rule, if any, this event asks for. Pure: decided from the payload only.
 function decide(event) {
-  if (event.type !== "Issue") return null;
   const data = event.data ?? {};
+  // A pull request got attached to an issue (Linear's GitHub integration): time for the review.
+  if ((event.type === "Attachment" || event.type === "IssueAttachment") && event.action === "create" && CONFIG.review
+      && /github\.com\/[^/]+\/[^/]+\/pull\/\d+/.test(data.url ?? "") && data.issueId) {
+    return { rule: "review", issueId: data.issueId, prUrl: data.url };
+  }
+  // An agent's top-level comment that opens with @<other agent>: relay the mention as a human.
+  if (event.type === "Comment" && event.action === "create" && CONFIG.relay && !data.parentId
+      && data.userId in CONFIG.agents && data.issueId) {
+    const m = /^@([A-Za-z0-9_.-]+)/.exec((data.body ?? "").trim());
+    const target = m && Object.entries(CONFIG.agents).find(([, name]) => name === m[1]);
+    if (target && target[0] !== data.userId) return { rule: "relay", issueId: data.issueId, mention: m[1], commentId: data.id };
+  }
+  if (event.type !== "Issue") return null;
   if (event.action === "update" && Array.isArray(event.updatedFrom?.labelIds)) {
     const before = new Set(event.updatedFrom.labelIds);
     const added = (data.labelIds ?? []).filter((id) => !before.has(id));
@@ -104,6 +116,24 @@ async function apply(decision, issueId) {
     return log(`${issue.identifier}: ${rule} → mentioned @${CONFIG.triage.mention}`);
   }
 
+  if (decision.rule === "review") {
+    const rule = `review:${decision.prUrl}`;
+    if (!issue.labels.nodes.some((l) => l.name in CONFIG.labelTriggers)) return log(`skip ${issue.identifier}: PR attached but no trigger label`);
+    if (seen(rule)) return log(`skip ${issue.identifier}: ${rule} already applied`);
+    const body = `@${CONFIG.review.mention} ${CONFIG.review.prompt.replace("{pr}", decision.prUrl)} ${marker(rule)}`;
+    await gql(`mutation($issueId: String!, $body: String!) { commentCreate(input: { issueId: $issueId, body: $body }) { success } }`,
+      { issueId: issue.id, body });
+    return log(`${issue.identifier}: review → mentioned @${CONFIG.review.mention} for ${decision.prUrl}`);
+  }
+
+  if (decision.rule === "relay") {
+    const rule = `relay:${decision.commentId}`;
+    if (seen(rule)) return log(`skip ${issue.identifier}: ${rule} already applied`);
+    await gql(`mutation($issueId: String!, $body: String!) { commentCreate(input: { issueId: $issueId, body: $body }) { success } }`,
+      { issueId: issue.id, body: `@${decision.mention} 请处理上一条评论（${issue.url}#comment-${decision.commentId}）里列出的阻塞项：逐条修复并推送到同一分支，回复说明每条的处理。 ${marker(rule)}` });
+    return log(`${issue.identifier}: relay → mentioned @${decision.mention} (comment ${decision.commentId})`);
+  }
+
   if (decision.rule === "handoff") {
     const rule = "handoff";
     if (seen(rule)) return log(`skip ${issue.identifier}: ${rule} already applied`);
@@ -129,6 +159,6 @@ createServer((req, res) => {
     const decision = decide(event);
     log(`event ${event.type}.${event.action} ${event.data?.identifier ?? event.data?.id ?? ""} → ${decision?.rule ?? "ignore"}`);
     if (process.env.BRIDGE_DUMP === "1") log(JSON.stringify(event));
-    if (decision) apply(decision, event.data.id).catch((err) => log(`error ${event.data?.identifier}: ${err.message}`));
+    if (decision) apply(decision, decision.issueId ?? event.data.id).catch((err) => log(`error ${event.data?.identifier ?? decision.issueId}: ${err.message}`));
   });
 }).listen(PORT, "127.0.0.1", () => log(`bridge listening on http://127.0.0.1:${PORT}`));

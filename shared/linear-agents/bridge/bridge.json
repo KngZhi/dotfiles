@@ -8,6 +8,11 @@
     "8122d78c-cf48-4da9-b635-2d9a5734f27b": "codex1"
   },
   "childHandoff": true,
+  "review": {
+    "mention": "claude",
+    "prompt": "请只读审查 {pr} ：对照本 issue 的验收标准和仓库 AGENTS.md，独立跑仓库声明的检查，只列阻塞项/非阻塞项，不改代码、不提交。审完在本 issue 另发一条顶层评论：有阻塞项就以 `@codex1` 开头并列出清单；没有阻塞项就以「审查通过」开头，不要 @ 任何人。"
+  },
+  "relay": true,
   "triage": {
     "mention": "claude",
     "prompt": "请用 triage 技能对本 issue 做只读分诊：分类、估大小、列出需要作者决定的问题、建议验收标准和下一步；要拆就给拆分建议。不改代码、不建 issue。"
