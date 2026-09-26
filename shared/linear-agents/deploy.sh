@@ -28,31 +28,16 @@ else
 fi
 for patch in "$HERE"/patches/*.sh; do bash "$patch" "$RUNTIME/node_modules"; done
 
-# 2. Routing config: template keys replace, everything else in config.json
-#    (Cyrus's own token store, refreshed at runtime) is kept. Cyrus watches
-#    the file and reloads repositories without a restart.
+# 2. Routing config: template keys + the project→repository table generated from
+#    Linear (sync-routing.mjs); everything else in config.json (Cyrus's own token
+#    store) is kept. Cyrus watches the file and reloads repositories without a
+#    restart. Without the bridge key yet, the last generated table is reused.
+if [ -f "$ROOT/bridge/.env" ]; then
+  node "$HERE/sync-routing.mjs" || node "$HERE/sync-routing.mjs" --no-fetch
+else
+  node "$HERE/sync-routing.mjs" --no-fetch
+fi
 for name in $INSTANCES; do
-  mkdir -p "$ROOT/$name/workspaces"; chmod 700 "$ROOT/$name"
-  python3 - "$HERE/config.template.json" "$ROOT/$name/config.json" "$name" <<'EOF'
-import json, os, sys
-tpl, target, name = sys.argv[1:4]
-home = os.environ["HOME"]
-text = open(tpl).read().replace("{{HOME}}", home)
-new = json.loads(text)
-for repo in new["repositories"]:
-    repo["id"] = f'{repo["name"]}-{name}'
-    repo["workspaceBaseDir"] = f"{home}/.local/share/linear-local-agents/{name}/workspaces"
-    if not os.path.isdir(repo["repositoryPath"]):
-        print(f'{name}: warning: {repo["repositoryPath"]} not cloned yet', file=sys.stderr)
-current = json.load(open(target)) if os.path.exists(target) else {}
-current.update(new)
-current["defaultRunner"] = name
-tmp = target + ".tmp"
-with open(tmp, "w") as f:
-    json.dump(current, f, ensure_ascii=False, indent=2); f.write("\n")
-os.chmod(tmp, 0o600); os.replace(tmp, target)
-print(f'{name}: config.json written ({len(new["repositories"])} repositories)')
-EOF
   [ -f "$ROOT/$name/.env" ] || echo "$name: no .env yet — copy $HERE/env.template and authenticate (README.md)" >&2
 done
 

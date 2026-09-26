@@ -11,9 +11,13 @@
 import { createServer } from "node:http";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { readFileSync, existsSync } from "node:fs";
+import { execFile } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 const here = new URL(".", import.meta.url);
 const root = `${process.env.HOME}/.local/share/linear-local-agents/bridge`;
+const ROUTING = `${process.env.HOME}/.local/share/linear-local-agents/routing.generated.json`;
+const SYNC = fileURLToPath(new URL("../sync-routing.mjs", here));
 for (const line of existsSync(`${root}/.env`) ? readFileSync(`${root}/.env`, "utf8").split("\n") : []) {
   const m = line.match(/^([A-Z_]+)=(.*)$/);
   if (m && !(m[1] in process.env)) process.env[m[1]] = m[2].replace(/^"|"$/g, "");
@@ -46,9 +50,29 @@ const ISSUE = `query($id: String!) {
     state { type }
     labels { nodes { id name } }
     delegate { id }
+    project { id name }
     comments(first: 100) { nodes { body } }
   }
 }`;
+
+// Project → repository routing is generated from Linear by sync-routing.mjs (a
+// project's GitHub link); an issue outside a routable project cannot be worked
+// on, so the bridge says so instead of delegating into the void.
+function routable(issue) {
+  if (!existsSync(ROUTING)) return true; // no table yet: let Cyrus decide
+  const { projects } = JSON.parse(readFileSync(ROUTING, "utf8"));
+  return Boolean(issue.project && projects.some((p) => p.projectId === issue.project.id));
+}
+let syncTimer;
+function scheduleSync(reason) {
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    execFile(process.execPath, [SYNC], { env: process.env }, (err, stdout, stderr) => {
+      for (const line of `${stdout}${stderr}`.trim().split("\n")) if (line) log(line);
+      if (err) log(`sync-routing failed (${reason}): ${err.message}`);
+    });
+  }, 3000);
+}
 
 function verified(raw, signature) {
   if (!signature) return false;
@@ -71,6 +95,8 @@ function decide(event) {
     const target = m && Object.entries(CONFIG.agents).find(([, name]) => name === m[1]);
     if (target && target[0] !== data.userId) return { rule: "relay", issueId: data.issueId, mention: m[1], commentId: data.id };
   }
+  // A project was created, renamed or had its links changed: rebuild the routing table.
+  if (event.type === "Project" && (event.action === "create" || event.action === "update")) return { rule: "sync" };
   if (event.type !== "Issue") return null;
   if (event.action === "update" && Array.isArray(event.updatedFrom?.labelIds)) {
     const before = new Set(event.updatedFrom.labelIds);
@@ -88,10 +114,20 @@ function decide(event) {
 }
 
 async function apply(decision, issueId) {
+  if (decision.rule === "sync") return scheduleSync(decision.reason ?? "project changed");
   const { issue } = await gql(ISSUE, { id: issueId });
   if (!CONFIG.teams.includes(issue.team.key)) return log(`skip ${issue.identifier}: team ${issue.team.key}`);
   const marker = (rule) => `[bridge:${rule}]`;
   const seen = (rule) => issue.comments.nodes.some((c) => c.body.includes(marker(rule)));
+  const comment = (body) => gql(`mutation($issueId: String!, $body: String!) { commentCreate(input: { issueId: $issueId, body: $body }) { success } }`,
+    { issueId: issue.id, body });
+  // Rules that start an agent need a repository behind the issue's project.
+  const unroutable = async (rule) => {
+    if (routable(issue)) return false;
+    if (!seen("noproject")) await comment(`这个 issue ${issue.project ? `所在的项目「${issue.project.name}」没有绑定仓库` : "没有挂项目"}，agent 无法定位仓库，未执行「${rule}」。请把它挂到一个在 Resources 里带 GitHub 仓库链接的项目，再重新操作。 ${marker("noproject")}`);
+    log(`skip ${issue.identifier}: ${rule} but project ${issue.project?.name ?? "-"} is not routable`);
+    return true;
+  };
 
   if (decision.rule === "label") {
     const added = issue.labels.nodes.filter((l) => decision.addedLabelIds.includes(l.id)).map((l) => l.name);
@@ -99,6 +135,7 @@ async function apply(decision, issueId) {
     if (!label) return log(`skip ${issue.identifier}: labels ${added.join(",") || "-"} not configured`);
     const rule = `label:${label}`;
     if (seen(rule)) return log(`skip ${issue.identifier}: ${rule} already applied`);
+    if (await unroutable(rule)) return;
     const agent = CONFIG.labelTriggers[label];
     await gql(`mutation($id: String!, $delegateId: String!) { issueUpdate(id: $id, input: { delegateId: $delegateId }) { success } }`,
       { id: issue.id, delegateId: agent.id });
@@ -111,6 +148,7 @@ async function apply(decision, issueId) {
     const rule = "triage";
     if (issue.state.type !== "triage") return log(`skip ${issue.identifier}: state ${issue.state.type}, not triage`);
     if (seen(rule)) return log(`skip ${issue.identifier}: ${rule} already applied`);
+    if (await unroutable(rule)) return;
     await gql(`mutation($issueId: String!, $body: String!) { commentCreate(input: { issueId: $issueId, body: $body }) { success } }`,
       { issueId: issue.id, body: `@${CONFIG.triage.mention} ${CONFIG.triage.prompt} ${marker(rule)}` });
     return log(`${issue.identifier}: ${rule} → mentioned @${CONFIG.triage.mention}`);

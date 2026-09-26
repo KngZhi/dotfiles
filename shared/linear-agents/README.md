@@ -31,9 +31,20 @@ Funnel paths `/codex` and `/claude` on this machine's tailnet hostname.
 
 Cyrus picks the repository in this order: `[repo=name]` tag in the issue
 description → routing label → Linear project name (`projectKeys`) → team
-(`teamKeys`). One project per repository is the convention, so a new
-repository means: clone it under `~/repo/`, add an entry with its Linear
-project name to `config.template.json`, run `deploy.sh`.
+(`teamKeys`). The project table is not hand-kept: `sync-routing.mjs`
+generates it from Linear, where **an engineering project carries a link to
+its GitHub repository** (Project → Resources). The script maps every
+project of the bridge's teams to `~/repo/<repo>` (cloning with `gh` when
+missing), reads the remote's default branch, applies the label procedures
+from `engineeringDefaults` in `config.template.json`, and writes the
+instances' `config.json`, which Cyrus reloads without a restart. A project
+without a link routes only if its name is a directory under `~/repo/`;
+otherwise it is unroutable and the bridge says so on the issue instead of
+delegating. Renames are harmless: the table is rebuilt from current names
+on every Project webhook and every `deploy.sh`. The last table lives in
+`~/.local/share/linear-local-agents/routing.generated.json`. So a new
+repository means: create the Linear project with its GitHub link. Only
+`chile-ops` (routed by team `SAO`) is a static entry in the template.
 
 Labels choose the procedure per repository: `Bug` → debugger,
 `Feature`/`Improvement` → builder, `RFC` → scoper (read-only). An issue
@@ -89,11 +100,15 @@ workspace owner, using the owner's personal API key:
   bridge repeats that mention as the owner (`relay`), which is how review
   findings reach the coder;
 - a human's new issue lands in Triage → the bridge @mentions the triage
-  agent (`triage`), which runs the read-only `triage` skill.
+  agent (`triage`), which runs the read-only `triage` skill;
+- a project is created or updated → the bridge runs `sync-routing.mjs`
+  (debounced), so the routing table follows renames and new links;
+- a label or triage rule hits an issue whose project has no repository →
+  one `[bridge:noproject]` comment explains what to attach, nothing else.
 
-The webhook therefore subscribes to `Issue`, `Comment` and `Attachment`
-events. One label is the only click: label → implement → PR → review →
-fix → CI, then a human merges.
+The webhook therefore subscribes to `Issue`, `Comment`, `Attachment` and
+`Project` events. One label is the only click: label → implement → PR →
+review → fix → CI, then a human merges.
 
 Every action leaves a `[bridge:<rule>]` comment on the issue, which is also
 the idempotency check, so silence on an issue means the bridge did not act.
