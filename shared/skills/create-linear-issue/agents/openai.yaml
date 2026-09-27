@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create Linear Issue"
+  short_description: "Linear issues for people and implementation agents"
+  default_prompt: "Use $create-linear-issue to create or revise an issue in the repository's Linear project, separating the human summary from Agent instructions."

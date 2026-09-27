@@ -20,7 +20,8 @@ code, pull requests and CI.
 - Triage roles map to Enginer's own fields, not extra labels: `Triage`
   (needs triage), `等回复` (needs info), `Todo` delegated to an agent (ready for
   agent), `Todo` assigned to a human (ready for human), `Canceled` or
-  `Duplicate` (won't fix). Category uses the workspace labels `Bug`, `Feature`,
+  `Duplicate` (won't fix). `Blocked` holds planned work waiting on an open
+  `blockedBy` Issue; `Backlog` is only for work not yet planned. Category uses the workspace labels `Bug`, `Feature`,
   `Improvement`, and `RFC` for design discussion.
 - Never write a bare `#123` in a Linear body: the workspace GitHub integration
   links it to the wrong repository. Write `GH-123` or the full URL.
@@ -28,9 +29,9 @@ code, pull requests and CI.
   the GraphQL API with the SAOKO key `op://DEV/Linear Cli SAOKO/credential`,
   passed only through an environment variable. The `Linear API` item belongs to
   a different workspace.
-- The agent-runtime-trigger pipeline still dispatches from a GitHub Issue with
-  the `run:develop` label. Until it dispatches from Linear, an executable issue
-  gets a GitHub copy with the same contract, linked both ways.
+- Create and maintain issues through `create-linear-issue`. If the user
+  explicitly requests a legacy workflow that requires a GitHub dispatch copy,
+  keep Linear authoritative and link that copy both ways.
 
 ## Pull request size and stacks
 
