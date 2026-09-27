@@ -13,12 +13,12 @@ Directories are keyed by the existing skill name. Keep inherited invocation poli
 licenses, and resources. When an upstream name disappears from the selected catalog,
 the build fails so the override can be reviewed rather than silently forgotten.
 
-Current sources:
-- Matt Pocock skills: workflow and writing entries.
-- lencx skills: coding-protocol.
-- Yevanchen/reclaim-code-entropy: repository simplification.
+Prefer `LOCAL.md` to replacing upstream files. The build appends it to the
+upstream `SKILL.md`, so upstream updates keep arriving and local notes carry only
+workspace conventions. A replaced file hides every later upstream change to it,
+and past rewrites silently dropped outputs such as the architecture HTML report.
 
-The adaptations keep project contracts and evidence requirements while removing
-broad activation, routine approval gates, fixed agent/session counts, and mandatory
-document or template overhead. Supporting documents are overridden when they would
-otherwise reintroduce a removed constraint.
+Current overrides:
+- Matt Pocock skills: `LOCAL.md` for to-spec and to-tickets (KngZhi GitHub issues).
+- lencx skills: coding-protocol, replaced.
+- Yevanchen/reclaim-code-entropy: repository simplification, replaced.

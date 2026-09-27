@@ -74,6 +74,16 @@ class BuildTests(unittest.TestCase):
         self.assertTrue(self.runtime_skill(".codex", "codex-only").exists())
         self.assertEqual((self.home / ".codex/AGENTS.md").read_text(), "shared instructions\n")
 
+    def test_local_notes_follow_upstream_instructions(self):
+        self.write("shared/skill-overrides/example/LOCAL.md", "local note\n")
+        self.run_build()
+        self.run_build()
+        for host in (".claude", ".codex"):
+            skill = self.runtime_skill(host, "example")
+            self.assertEqual((skill / "SKILL.md").read_text(), "upstream\n\nlocal note\n")
+            self.assertFalse((skill / "LOCAL.md").exists())
+        self.assertEqual((self.pack / "skills/example/SKILL.md").read_text(), "upstream\n")
+
     def test_claude_instructions_migrate_and_remain_independent(self):
         claude = self.home / ".claude/CLAUDE.md"
         claude.parent.mkdir(parents=True)
@@ -132,11 +142,11 @@ class BuildTests(unittest.TestCase):
     def test_codex_manifest_array_and_excluded_skill(self):
         (self.pack / ".claude-plugin/plugin.json").unlink()
         self.write("shared/skill-packs/author-pack/.codex-plugin/plugin.json",
-                   '{"skills":["./skills/example", "./skills/research"]}')
-        self.skill("shared/skill-packs/author-pack/skills/research", "excluded")
+                   '{"skills":["./skills/example", "./skills/keel"]}')
+        self.skill("shared/skill-packs/author-pack/skills/keel", "excluded")
         self.run_build()
         self.assertTrue(self.runtime_skill(".codex", "example").exists())
-        self.assertFalse(self.runtime_skill(".codex", "research").exists())
+        self.assertFalse(self.runtime_skill(".codex", "keel").exists())
 
     def test_orphan_override_fails_before_publication(self):
         self.run_build()

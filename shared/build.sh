@@ -11,7 +11,7 @@ PACKS_DIR="$DOTFILES_DIR/shared/skill-packs"
 PACKS_DEPLOY="$PACKS_DIR/.deploy"
 OVERRIDES="$DOTFILES_DIR/shared/skill-overrides"
 PACK_EXCLUDE="deprecated in-progress misc out-of-scope personal .out-of-scope"
-PACK_SKILL_EXCLUDE="keel research resolving-merge-conflicts domain-modeling"
+PACK_SKILL_EXCLUDE="keel"
 
 PULL=0
 while [ $# -gt 0 ]; do
@@ -103,6 +103,11 @@ deploy_pack_skill() {
         mkdir "$STAGING/packs/$name"
         cp -R "$sdir/." "$STAGING/packs/$name/"
         cp -R "$OVERRIDES/$name/." "$STAGING/packs/$name/"
+        # LOCAL.md adds workspace conventions after the upstream instructions.
+        if [ -f "$STAGING/packs/$name/LOCAL.md" ]; then
+            { printf '\n'; cat "$STAGING/packs/$name/LOCAL.md"; } >> "$STAGING/packs/$name/SKILL.md"
+            rm "$STAGING/packs/$name/LOCAL.md"
+        fi
     else
         ln -s "$sdir" "$STAGING/packs/$name"
     fi
