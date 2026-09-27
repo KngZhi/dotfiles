@@ -52,5 +52,6 @@ description: Read-only review panel for a pull request delivered against a Linea
 ## 规则
 
 - 不改代码、不提交、不 approve、不 merge；只读签出必须还原。
+- 所有 lens 共用本会话的 worktree；不要另外 clone 仓库或新建 worktree（每份 chile-mono 检出约 1 GB，机器资源有限）。
 - 引用 GitHub 写完整 URL 或 `GH-N`，不写裸 `#N`。
 - 子代理没回来或报错，就在结论里写明该 lens 缺席，不要补写它的结论；缺席的 panel 不能给出"审查通过"。

@@ -57,6 +57,21 @@ runners; Cyrus symlinks them for Codex), the instance's
 investigate / verify-and-ship / summarize, and for Claude everything under
 `~/.claude/skills`.
 
+## Worktrees
+
+Each issue gets one worktree per instance under `…/<name>/workspaces/`. A
+chile-mono checkout shows as ~1 GB in `du`, but pnpm hardlinks most of
+`node_modules` into its global store: removing 15 finished worktrees
+(7 GB by `du`) freed about 1 GB, so the real cost per worktree is the
+install, build and test time, not disk. Cleanup still matters on this machine. Cyrus deletes the worktree when the issue
+is marked Done or Canceled (and stops its sessions), but it looks in
+`CYRUS_WORKTREES_DIR`, not in the repositories' `workspaceBaseDir`, so
+`run.sh` points that variable at the same `workspaces/` directory. Issues
+closed while an instance is down keep their worktree; remove those by hand
+(`git worktree remove --force <path>` from the repository, then delete the
+directory). The review skill tells its lenses to share the session's
+worktree instead of cloning again.
+
 ## Browser
 
 `run.sh` sets `CYRUS_BROWSER_USE_ENABLED=true` and puts the runtime's
