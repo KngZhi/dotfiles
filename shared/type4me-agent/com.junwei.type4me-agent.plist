@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.junwei.type4me-agent</string>
+
+  <!--
+    Type4Me's history.db is opened with SQLite's default rollback-journal mode
+    (journal_mode=delete), not WAL -- confirmed by reading
+    Type4Me/Database/HistoryStore.swift (only a separate ask-anything.db uses
+    WAL) and by `PRAGMA journal_mode` on the live file. So a write briefly
+    creates/deletes history.db-journal rather than a persistent -wal/-shm
+    pair. All three paths are still watched: -journal for the current
+    rollback-journal mode, -wal in case a future Type4Me version turns WAL on
+    for this store too. WatchPaths tolerates paths that don't currently exist.
+  -->
+  <key>WatchPaths</key>
+  <array>
+    <string>/Users/amd/Library/Application Support/Type4Me/history.db</string>
+    <string>/Users/amd/Library/Application Support/Type4Me/history.db-journal</string>
+    <string>/Users/amd/Library/Application Support/Type4Me/history.db-wal</string>
+  </array>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>/Users/amd/repo/dotfiles/shared/type4me-agent/watcher.py</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>/Users/amd</string>
+    <key>PATH</key>
+    <string>/Users/amd/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <key>ThrottleInterval</key>
+  <integer>3</integer>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/amd/Library/Logs/type4me-agent-launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/amd/Library/Logs/type4me-agent-launchd.log</string>
+</dict>
+</plist>
