@@ -37,9 +37,17 @@ description: 对已整理并核对完成的标准货柜表配置费用、计算�
 成本结果放其 `generated/`。未完成的整理稿留在 `00_待整理货柜`，不放入正式输入目录。
 区分真实金额、业务默认值、暂估和缺失字段，预计日期不得冒充实际到柜日期。
 
-完成有持久结果的步骤后，在 `~/repo/org/containers.org` 按柜号更新对应的
-`SUPPLIER`、`XLSX`、`PO_IDS` 和 checklist。只记录实际完成的状态；
-计算完成不能标记入库完成。
+完成有持久结果的步骤后写回该柜的 Linear 父 Issue（SAOKO，模板「货柜」；规则见
+`~/repo/chile-ops/sop/container.md`「父 Issue 是唯一入口」）：
+
+- 导出 xlsx 路径：`python3 ~/repo/chile-ops/scripts/container_context.py --container <柜号> --xlsx <路径>`，
+  脚本按柜号找父 Issue，只改这一字段。
+- 导入创建的 Vin：K2046 是台账，重跑 `container_context.py --container <柜号>` 从 K2046 回填入库单、
+  供应商与 Vin 校验，并按 SOP 04「查到」分支关联各采购订单父 Issue；单号不手抄。
+- 费用材料（海运费、内陆费、清关杂费等）的 checklist 状态写到「02｜费用与付款」子 Issue；
+  入库完成勾在「补建 Vin」子 Issue。
+
+只记录实际完成的状态；计算完成不能标记入库完成。
 
 报告产物路径、完成阶段、关键数据来源及真正缺失的字段。用户已授权的后续步骤
 可继续；缺少计算必填项时不要输出看似完整的成本结果。

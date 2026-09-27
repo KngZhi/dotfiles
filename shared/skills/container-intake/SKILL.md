@@ -39,9 +39,22 @@ uv run scripts/sheets.py validate <柜号>
 uv run scripts/sheets.py export <柜号> <目标.xlsx>            # 交接时才导出
 ```
 
-以柜号为表格名，只通过脚本新建；同一柜已有表格时继续用，不重复新建。新建后把链接记入
-`~/repo/org/containers.org` 该柜的 `SHEET` 属性和材料索引。旧的本地整理稿用 `create --from`
-迁移一次后不再修改 xlsx 版本。整理稿不放进正式成本输入目录；`export` 只在交接时执行。
+以柜号为表格名，只通过脚本新建；同一柜已有表格时继续用，不重复新建。新建后把链接记入材料索引，
+并写进柜父 Issue 的货柜关联块（见[记录位置](#记录位置)）：
+`python3 ~/repo/chile-ops/scripts/container_context.py --container <柜号> --sheet <链接>`。
+旧的本地整理稿用 `create --from` 迁移一次后不再修改 xlsx 版本。整理稿不放进正式成本输入目录；
+`export` 只在交接时执行。
+
+## 记录位置
+
+台账是 K2046，流程在该柜的 Linear 父 Issue（SAOKO，模板「货柜」），规则见
+`~/repo/chile-ops/sop/container.md`「父 Issue 是唯一入口」。本技能在补建 Vin 子 Issue 下运行时：
+
+- 工作链接（Google 整理表、导出 xlsx、材料索引路径）用 `container_context.py --container <柜号>
+  --sheet/--xlsx/--index` 写进父 Issue 顶部的货柜关联块；脚本按柜号找父 Issue，一次只改给出的字段。
+- 柜号、Vin、供应商由脚本从 K2046 回填，不手抄。
+- 材料 checklist 的状态（整理中 / 可计算成本、缺什么、等谁）写到父 Issue 下的「补建 Vin」子 Issue：
+  勾项、评论、Status；费用凭证相关的项写到「02｜费用与付款」子 Issue。
 
 ## 整理标准表
 
@@ -92,12 +105,12 @@ uv run scripts/sheets.py export <柜号> <目标.xlsx>            # 交接时才
 - 真实海运费已取得；内陆费有明确金额或承担方，分票与整柜范围已核清。
   其余参数是否可用默认值，以 [成本参数规则](../container-cost/references/costing.md#费用来源与默认值) 为准。
 
-资料暂缺不妨碍完成本次整理。整理稿留在 Google 表格，列出缺项并更新
-`~/repo/org/containers.org` 的 `SUPPLIER`、`SHEET` 和材料 checklist。
-未就绪的表不导出到正式成本输入目录，不生成看似可入库的成本结果。
+资料暂缺不妨碍完成本次整理。整理稿留在 Google 表格，缺项列进材料索引，并按[记录位置](#记录位置)
+写到补建 Vin 子 Issue。未就绪的表不导出到正式成本输入目录，不生成看似可入库的成本结果。
 
 材料就绪且用户已要求继续计算时，才导出标准表：
 `uv run scripts/sheets.py export <柜号> '~/Library/CloudStorage/OneDrive-Personal/source_files/containers/(<材料日期>)<柜号>.xlsx'`，
-把路径写入 `XLSX` 属性，调用 `container-cost`。导出前表格里不应残留红标；
-导出后表格改动不会自动同步，须重新导出。仅要求整理时，报告已就绪即可。
-已有授权不重复询问，资料缺失也不能当成已获答案。不要修改 `PO_IDS` 或将材料完成标记成入库完成。
+用 `container_context.py --container <柜号> --xlsx <路径>` 把路径写进货柜关联块，调用 `container-cost`。
+导出前表格里不应残留红标；导出后表格改动不会自动同步，须重新导出。仅要求整理时，报告已就绪即可。
+已有授权不重复询问，资料缺失也不能当成已获答案。材料完成和入库完成是两件事：入库单（Vin）
+只由 K2046 记录、由脚本回填。

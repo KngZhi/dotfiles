@@ -52,7 +52,8 @@ k2046 purchase update-invoice-time <采购单ID> --invoice-date-time "<实际发
 ## 完成
 
 保留导入返回的采购单 ID，核实创建与提交状态。部分失败时先检查已有采购单，恢复未完成步骤，
-避免重复导入。只有实际完成后才更新 containers.org 的 `PO_IDS` 和入库 checklist。
+避免重复导入。只有实际完成后才重跑 `container_context.py --container <柜号>`（让 K2046 的新 Vin 进入
+柜父 Issue 的货柜关联块）并勾「补建 Vin」子 Issue 的入库项。
 
-如请求还包括图片整理，按柜号整理产品图片并单独核实对应 checklist。报告已解析、已创建、已提交
-和仍未完成的阶段。
+如请求还包括图片整理，按柜号整理产品图片并在父 Issue 对应子 Issue 里单独核实。报告已解析、已创建、
+已提交和仍未完成的阶段。
