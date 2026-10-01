@@ -1,8 +1,11 @@
 import importlib.util
+import json
+from argparse import Namespace
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import Mock, patch
 
 SCRIPTS = Path(__file__).parents[1] / 'scripts'
 sys.path.insert(0, str(SCRIPTS))
@@ -22,6 +25,54 @@ def computed(matrix, row_values):
     for r, row in enumerate(matrix):
         out.append([row_values.get((r, c), '' if isinstance(v, str) and v.startswith('=') else v) for c, v in enumerate(row)])
     return out
+
+
+class ImageDumpTests(unittest.TestCase):
+    def test_image_metadata_distinguishes_formula_literal_blank_and_error(self):
+        formula = '=IMAGE("https://example.test/a.jpg")'
+        error = {'type': 'ERROR', 'message': 'Image could not load'}
+        sh = Mock()
+        sh.fetch_sheet_metadata.return_value = {'sheets': [{'properties': {'title': 'data'},
+            'data': [{'startRow': 1, 'startColumn': 3, 'rowData': [
+                {'values': [{'userEnteredValue': {'formulaValue': formula}}]},
+                {'values': [{'userEnteredValue': {'stringValue': formula}}]},
+                {},
+                {'values': [{'userEnteredValue': {'formulaValue': formula},
+                             'effectiveValue': {'errorValue': error}}]},
+            ]}]}]}
+        result = sheets.image_cells(sh, 4)
+        self.assertEqual(sh.fetch_sheet_metadata.call_args.args[0]['ranges'], "'data'!D2:D5")
+        self.assertEqual(result['D2']['formula'], formula)
+        self.assertIsNone(result['D2']['error'])
+        self.assertEqual(result['D3']['formula'], '')  # RAW text is not a native formula.
+        self.assertEqual(result['D3']['user_entered_value']['stringValue'], formula)
+        self.assertEqual(result['D4']['user_entered_value'], {})
+        self.assertEqual(result['D5']['error'], error)
+
+    def test_dump_roundtrip_preserves_image_formula_computed_values_and_notes(self):
+        formula = '=IMAGE("https://example.test/a.jpg")'
+        matrix = sheets.data_matrix([dict(ROW, 图片=formula)])
+        book = book_from_matrices({'data': computed(matrix, {(1, 10): 165, (1, 11): 1650}),
+                                  'config': [['参数', '值', '说明'], ['海运费', 6400, '用户待核']]},
+                                 {'data': matrix})
+        sh = Mock(url='https://example.test/sheet')
+        diagnostics = {'D2': {'formula': formula, 'user_entered_value': {'formulaValue': formula}, 'error': None}}
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / 'dump.json'
+            with patch.object(sheets, 'connect'), patch.object(sheets, 'open_sheet', return_value=sh), \
+                 patch.object(sheets, 'load_book', return_value=book), \
+                 patch.object(sheets, 'image_cells', return_value=diagnostics), \
+                 patch.object(sheets, 'existing_notes', return_value={('data', 'D2'): '用户批注'}):
+                sheets.cmd_dump(Namespace(ref='sheet', out=out))
+            payload = json.loads(out.read_text())
+        self.assertEqual(payload['rows'][0]['图片'], formula)
+        self.assertEqual(sheets.data_matrix(payload['rows'])[1][3], formula)
+        self.assertEqual(payload['rows'][0]['总数量'], 165)
+        self.assertEqual(payload['rows'][0]['货款合计（元）'], 1650)
+        self.assertEqual(payload['config']['海运费'], 6400)
+        self.assertEqual(payload['config_notes']['海运费'], '用户待核')
+        self.assertEqual(payload['cell_notes']['data!D2'], '用户批注')
+        self.assertEqual(payload['image_cells'], diagnostics)
 
 
 class LayoutTests(unittest.TestCase):

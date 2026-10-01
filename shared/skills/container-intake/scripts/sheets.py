@@ -424,7 +424,13 @@ def cmd_url(args):
 def cmd_dump(args):
     sh = open_sheet(connect(), args.ref)
     rows, config, notes = rows_from_book(load_book(sh))
+    images = image_cells(sh, len(rows))
+    for index, row in enumerate(rows, 2):
+        formula = images[f'D{index}']['formula']
+        if formula.upper().startswith('=IMAGE('):
+            row['图片'] = formula
     payload = dict(url=sh.url, rows=rows, config=config, config_notes=notes,
+                   image_cells=images,
                    cell_notes={f'{s}!{c}': n for (s, c), n in existing_notes(sh).items()})
     text = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
     if args.out:
@@ -432,6 +438,33 @@ def cmd_dump(args):
         print(args.out)
     else:
         print(text)
+
+
+def image_cells(sh, count):
+    """Read stored D formulas and effective errors, independent of image caches."""
+    result = {f'D{r}': {'formula': '', 'user_entered_value': {}, 'error': None}
+              for r in range(2, count + 2)}
+    if not count:
+        return result
+    meta = sh.fetch_sheet_metadata({
+        'includeGridData': True, 'ranges': f"'data'!D2:D{count + 1}",
+        'fields': 'sheets(properties(title),data(startRow,startColumn,rowData(values(userEnteredValue,effectiveValue/errorValue))))',
+    })
+    for sheet in meta.get('sheets', []):
+        if sheet['properties']['title'] != 'data':
+            continue
+        for block in sheet.get('data', []):
+            r0, c0 = block.get('startRow', 0), block.get('startColumn', 0)
+            for ri, row in enumerate(block.get('rowData', [])):
+                for ci, cell in enumerate(row.get('values', [])):
+                    coord = f'D{r0 + ri + 1}'
+                    if c0 + ci != 3 or coord not in result:
+                        continue
+                    entered = cell.get('userEnteredValue', {})
+                    result[coord] = {'formula': entered.get('formulaValue', ''),
+                                     'user_entered_value': entered,
+                                     'error': cell.get('effectiveValue', {}).get('errorValue')}
+    return result
 
 
 def cmd_write(args):

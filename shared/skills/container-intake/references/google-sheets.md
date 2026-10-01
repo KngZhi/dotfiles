@@ -55,7 +55,8 @@
 - 批注分三层：用户自己写的文字、`[container-intake AI核对]`、`[container-intake 自动核对]`。
   自动验证只改自己那一层；`mark`/`unmark` 只改 AI 层；用户文字始终保留。
   三层都空时单元格恢复黑白。
-- `图片`（D列）依[货柜 SOP 图片来源规则](https://github.com/KngZhi/chile-ops/blob/main/sop/container.md#第一步材料整理container-intake)，填写实时精确匹配货号的 K2046 商品主图 URL；缺主图时留空，并在该 D 格按货号标待补。原件图片留在材料目录作来源，位置和哈希记入材料索引。
-- 更新主图链接：先 `dump` 保存原行、配置和批注，再只读查每个货号对应的 K2046 商品 ID、主图 URL 和查询时间；用 `set` 定点写对应 `data!D<行>`。写后 `dump` 逐货号核对 URL 与实时来源相等，确认其他值和用户批注保持；主图缺失的行保持空白与待补标注。
+- `图片`（D列）依[货柜 SOP 图片来源规则](https://github.com/KngZhi/chile-ops/blob/main/sop/container.md#第一步材料整理container-intake)，用 `=IMAGE("K2046对应商品主图URL")` 在单元格显示图片；缺主图时留空，并在该 D 格按货号标待补。原件图片留在材料目录作来源，位置和哈希记入材料索引。
+- 固定写读步骤：先 `dump` 保存原行、配置和批注，再只读查每个货号对应的 K2046 商品 ID、主图 URL 和查询时间；用 `set <表链接> 'data!D2==IMAGE("https://...")'` 定点写公式（`USER_ENTERED`）。写后 `dump` 核对 `rows[].图片` 与 `image_cells.D2.formula` 保留正确公式、`image_cells.D2.error` 无错误，确认其他值和用户批注保持。图片缓存空值不替代公式与错误验收。
+- 来源判断：按货号精确匹配 K2046 商品及主图；主图缺失的行保持空白与待补标注，不以原件图片代替主图。
 
 脚本只在显式生成或重建 config 时按 [旧表重算规则](../../container-cost/references/costing.md#旧表重算) 迁移 IVA；既有在线表不会在后台自动迁移。
