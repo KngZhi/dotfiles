@@ -5,6 +5,9 @@
   },
   "permissions": {
     "allow": [
+      "mcp__k2046__*",
+      "mcp__linear__*",
+      "mcp__plugin_linear_linear__*",
       "mcp__zen__challenge",
       "mcp__zen__thinkdeep",
       "Bash(find:*)",

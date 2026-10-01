@@ -1,5 +1,20 @@
 # Shared agent instructions
 
+## K2046 and Linear standing authorization
+
+The user grants standing authorization to use K2046 and Linear through existing
+MCP tools, connectors, CLIs, or APIs. Execute reads and task-scoped writes needed
+to fulfill the user's request without asking for permission again. A request to
+create, update, import, submit, cancel, or delete authorizes that action.
+
+Ask only for missing business information or an action outside the requested
+scope. Treat data validation as a correctness check, not a permission question;
+standing authorization does not supply missing data. Respect explicit read-only
+or no-write instructions.
+
+Read before writing and verify the result afterward. Stop on an uncertain write
+and inspect the existing result before considering another attempt.
+
 ## Local tools
 
 - `in2csv` prints a local `.xls` / `.xlsx` sheet as CSV. Python `openpyxl` reads

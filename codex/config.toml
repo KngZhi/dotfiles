@@ -37,6 +37,7 @@ trust_level = "trusted"
 "gpt-5.2" = "gpt-5.2-codex"
 
 [mcp_servers.k2046]
+default_tools_approval_mode = "approve"
 command = "node"
 args = ["/Users/amd/repo/chile-mono/apps/k2046-mcp/dist/index.js"]
 
@@ -81,3 +82,9 @@ enabled = true
 
 [plugins."browser@openai-bundled"]
 enabled = true
+
+[apps.asdk_app_69a089a326dc8191b32a3f2553f5be2c]
+default_tools_approval_mode = "approve"
+
+[apps.asdk_app_6ab93bcacba48191a62138b86a9dc217]
+default_tools_approval_mode = "approve"
