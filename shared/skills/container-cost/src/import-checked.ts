@@ -1,4 +1,4 @@
-/** Mandatory price/category gate for the exact workbook passed to the importer. */
+/** Mandatory price/category/name gate for the exact workbook passed to the importer. */
 import { readFile, utils } from './xlsx.js';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
@@ -23,6 +23,10 @@ export function checkImport(file: string): string[] {
     count++;
     const sku = row[headers.indexOf('货号')];
     if (!sku) errors.push(`第${i + 2}行：缺货号`);
+    const name2 = row[headers.indexOf('产品名2')];
+    if (sku != null && sku !== '' && String(name2) === String(sku)) {
+      errors.push(`[PRODUCT_NAME_2_EQUALS_SKU] 第${i + 2}行 ${sku}：产品名2（D${i + 2}）与货号（A${i + 2}）完全相同；阻断导入，按来源补真实产品名2`);
+    }
     for (const name of prices) {
       const value = row[headers.indexOf(name)];
       if ((typeof value !== 'number' && typeof value !== 'string') ||
@@ -46,7 +50,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`阻断导入：${errors.length}项\n${errors.join('\n')}`);
     process.exitCode = 1;
   } else if (args.includes('--check-only')) {
-    console.log('PASS：全部成本、售价大于0，分类齐全');
+    console.log('PASS：全部成本、售价大于0，分类齐全，产品名2与货号不完全相同');
   } else {
     const mapping = 'productNumber,barCode1,title1,title2,supplier,costPrice,boxPrice,bigBagPrice,bagPrice,unitPrice,packingBox,packingBigBag,packingBag,boxNumber,unitNumber,warehouse,category1,category2';
     const result = spawnSync('k2046', ['purchase', 'import-container', file, ...args, '--import-format', mapping], { stdio: 'inherit' });
