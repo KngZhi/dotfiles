@@ -35,7 +35,13 @@ export function checkImport(file: string): string[] {
       }
     }
     for (const name of ['分类1', '分类2']) {
-      if (!String(row[headers.indexOf(name)] ?? '').trim()) errors.push(`第${i + 2}行 ${sku} ${name}：缺失`);
+      const column = headers.indexOf(name);
+      const category = String(row[column] ?? '');
+      if (!category.trim()) errors.push(`第${i + 2}行 ${sku} ${name}：缺失`);
+      if (String(sku ?? '').startsWith('PM') && category.startsWith('PF')) {
+        const cell = utils.encode_cell({ r: i + 1, c: column });
+        errors.push(`[PM_CATEGORY_PREFIX_MISMATCH] 第${i + 2}行 ${sku}：${name}（${cell}）为 ${category}，PM货号被分入PF分类；阻断导入，按来源核实分类`);
+      }
     }
   });
   if (!count) errors.push('没有商品明细');
@@ -50,7 +56,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`阻断导入：${errors.length}项\n${errors.join('\n')}`);
     process.exitCode = 1;
   } else if (args.includes('--check-only')) {
-    console.log('PASS：全部成本、售价大于0，分类齐全，产品名2与货号不完全相同');
+    console.log('PASS：全部成本、售价大于0，分类齐全且PM货号未分入PF分类，产品名2与货号不完全相同');
   } else {
     const mapping = 'productNumber,barCode1,title1,title2,supplier,costPrice,boxPrice,bigBagPrice,bagPrice,unitPrice,packingBox,packingBigBag,packingBag,boxNumber,unitNumber,warehouse,category1,category2';
     const result = spawnSync('k2046', ['purchase', 'import-container', file, ...args, '--import-format', mapping], { stdio: 'inherit' });

@@ -13,6 +13,8 @@
 写明问题、处理要求及是否阻断导入。红色或批注被清除不代表问题已解决，仍须核对实际数据与来源。
 
 - 固定脚本检查：`import:checked` 对同一行「产品名2」与「货号」原字串作完全相等比较；相等输出 `PRODUCT_NAME_2_EQUALS_SKU`，列明 SKU、行号、D/A单元格并阻断正式导入。保留原大小写和空格，不做 trim 或大小写归一。
+- 分类一致性检查执行[货柜SOP的导入门槛](https://github.com/KngZhi/chile-ops/blob/main/sop/container.md#第二步成本核算与-k2046-导入container-cost)：`PM_CATEGORY_PREFIX_MISMATCH` 报警列明SKU、行号、分类列、单元格与实际分类值，`--check-only` 和正式导入均先于ERP调用阻断；依据来源核实分类、回标对应分类格，再重新导出预检。
+- 成本页格式脚本 [`format_cost_sheet.py`](../../container-intake/scripts/format_cost_sheet.py) 重建格式时一并生成产品名2完全相等与分类一致性报警，保留这两项预检在表内的提示。
 - 来源判断：按该SKU已证实的产品资料补真实产品名2，保持SKU身份；把报警回标到成本页对应D格后，重新导出当前表并运行 `--check-only`，通过后才走正式导入。
 
 ## 范围与字段

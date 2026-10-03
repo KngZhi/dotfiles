@@ -64,3 +64,48 @@ test('exact name2/SKU equality alerts with cells and stops before the importer',
     assert.equal(existsSync(marker), true); // Corrected input reaches only the fake importer.
   } finally { rmSync(dir, { recursive: true }); }
 });
+
+
+test('PM/PF category mismatch blocks check-only and formal entry before ERP, without broadening other prefixes', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'category-prefix-gate-'));
+  const file = join(dir, 'cost.xlsx');
+  const marker = join(dir, 'importer-called');
+  const script = fileURLToPath(new URL('./import-checked.ts', import.meta.url));
+  const header = ['货号', '条形码', '产品名1', '产品名2', '供应商', '成本价', '箱价格', '大包价格', '包价格', '单价', '装箱数', '大包装数', '包装数', '件数', '散件数', '仓库', '分类1', '分类2'];
+  function save(sku: string, category1: string, category2: string) {
+    const row = [sku, '', '袜子', 'Calcetín', '唐潮', 100, 200, 250, 300, 400, 80, 5, 1, 1, 0, 'lazon', category1, category2];
+    const book = utils.book_new();
+    utils.book_append_sheet(book, utils.aoa_to_sheet([header, row]), '成本计算结果');
+    writeFile(book, file);
+  }
+  writeFileSync(join(dir, 'k2046'), `#!/usr/bin/env node\nrequire('node:fs').writeFileSync(${JSON.stringify(marker)}, 'called');\n`, { mode: 0o755 });
+  const env = { ...process.env, PATH: `${dir}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH}` };
+  const run = (...args: string[]) => spawnSync(process.execPath, ['--import', 'tsx', script, file, ...args], { env, encoding: 'utf8' });
+  try {
+    for (const [category1, category2, name, cell] of [
+      ['cace', 'PF200-40', '分类2', 'R2'],
+      ['PF200', 'hombre', '分类1', 'Q2'],
+    ]) {
+      save('PM534', category1, category2);
+      const errors = checkImport(file);
+      assert.equal(errors.length, 1);
+      assert.match(errors[0], /PM_CATEGORY_PREFIX_MISMATCH.*PM534/);
+      assert.ok(errors[0].includes(`${name}（${cell}）`));
+      for (const args of [['--check-only'], ['--container-no', 'MSMU6058412']]) {
+        const blocked = run(...args);
+        assert.equal(blocked.status, 1);
+        assert.match(blocked.stderr, /PM_CATEGORY_PREFIX_MISMATCH.*PM534/);
+        assert.equal(existsSync(marker), false);
+      }
+    }
+    for (const [sku, category] of [['PM534', 'PM200-40'], ['PF558', 'PF200-40'], ['RF220', 'PF200-40'], ['RM220', 'PF200-40']]) {
+      save(sku, 'cace', category);
+      assert.deepEqual(checkImport(file), []);
+    }
+    save('PM534', 'cace', 'PM200-40');
+    assert.equal(run('--check-only').status, 0);
+    assert.equal(existsSync(marker), false);
+    assert.equal(run('--container-no', 'MSMU6058412').status, 0);
+    assert.equal(existsSync(marker), true);
+  } finally { rmSync(dir, { recursive: true }); }
+});

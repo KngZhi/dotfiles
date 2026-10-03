@@ -38,6 +38,16 @@ def main(ref):
     yellow = {'backgroundColor': {'red': 1, 'green': .96, 'blue': .8}, 'textFormat': {'foregroundColor': {'red': .45, 'green': .3, 'blue': 0}}}
     for i, (rg, formula, fmt) in enumerate([(area(5, 10, 1), '=IFERROR(OR(LEN(TRIM(F2&""))=0,VALUE(F2)<=0),TRUE)', red), (area(16, 18, 1), '=LEN(TRIM(Q2&""))=0', red), (area(6, 10, 1), '=IFERROR(AND(VALUE(G2)>0,VALUE($F2)>0,(VALUE(G2)-VALUE($F2))/VALUE(G2)<0.25),FALSE)', yellow)]):
         req.append({'addConditionalFormatRule': {'index': i, 'rule': {'ranges': [rg], 'booleanRule': {'condition': {'type': 'CUSTOM_FORMULA', 'values': [{'userEnteredValue': formula}]}, 'format': fmt}}}})
+    columns = {header: i for i, header in enumerate(before[0])}
+    sku, name2 = columns['货号'], columns['产品名2']
+    category1, category2 = columns['分类1'], columns['分类2']
+    sku_ref, name2_ref = f'${chr(65 + sku)}2', f'${chr(65 + name2)}2'
+    category_ref = f'{chr(65 + category1)}2'
+    for i, (rg, formula) in enumerate([
+        (area(name2, name2 + 1, 1), f'=AND(LEN({sku_ref}&"")>0,EXACT({name2_ref}&"",{sku_ref}&""))'),
+        (area(category1, category2 + 1, 1), f'=AND(REGEXMATCH({sku_ref}&"","^PM"),REGEXMATCH({category_ref}&"","^PF"))'),
+    ], 3):
+        req.append({'addConditionalFormatRule': {'index': i, 'rule': {'ranges': [rg], 'booleanRule': {'condition': {'type': 'CUSTOM_FORMULA', 'values': [{'userEnteredValue': formula}]}, 'format': red}}}})
     req.append({'autoResizeDimensions': {'dimensions': {'sheetId': sid, 'dimension': 'ROWS', 'startIndex': 0, 'endIndex': end}}})
     assert ws.get_all_values() == before, '表格变化，请重试'
     sh.batch_update({'requests': req})
