@@ -15,6 +15,6 @@ through environment variables or pipes, never into output or files.
 
 ## Trigger.dev runs
 
-Check agent-runtime-trigger run status with the `trigger-tracker` agent rather than
-`mcp__trigger__*`: the user-level `--dev-only` Trigger MCP server can cancel
-in-flight runs on the same branch.
+Check agent-runtime-trigger run status with the `trigger-tracker` agent. The
+Claude Code and Codex user configs carry no Trigger MCP server (removed
+2026-10-03): its `--dev-only` mode can cancel in-flight runs on the same branch.
