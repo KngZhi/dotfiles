@@ -9,6 +9,8 @@
 `npm run import:checked -- <成本Excel> <参数>`，每次调用都会重新检查。直接调用
 `k2046 purchase import-container` 只用于只读预解析，不得正式写入。
 
+校验分工执行[货柜SOP的确定性校验规则](https://github.com/KngZhi/chile-ops/blob/main/sop/container.md#第二步成本核算与-k2046-导入container-cost)：运行既有检查脚本并保留结果，再处理来源判断。
+
 预检发现的问题按 [问题标注规则](../../container-intake/references/workbook.md#问题标注) 回标到具体单元格，
 写明问题、处理要求及是否阻断导入。红色或批注被清除不代表问题已解决，仍须核对实际数据与来源。
 
