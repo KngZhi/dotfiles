@@ -11,9 +11,7 @@ personality = "pragmatic"
 suppress_unstable_features_warning = true
 
 [features]
-ghost_commit = false
 apply_patch_freeform = true
-skills = true
 unified_exec = true
 shell_snapshot = true
 collab = true
