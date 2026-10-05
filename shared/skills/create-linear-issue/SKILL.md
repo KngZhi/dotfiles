@@ -156,9 +156,9 @@ without anyone reading the bodies.
   ```markdown
   | 顺序 | Issue | 现在 | 要等 | 可同时做 | 注意 |
   |---|---|---|---|---|---|
-  | 1 | SK-101 L1 … | Todo | 无 | 102、103 | 改 chile-ops |
-  | 4 | SK-86 L6 … | Todo | 无 | 101、102 | 与 103 都改 bridge.js，排在 103 后；单独上线 |
-  | 5 | SK-84 L2 … | Blocked | 101 | — | |
+  | 1 | SK-A L1 … | Todo | 无 | 102、103 | 改 chile-ops |
+  | 4 | SK-B L6 … | Todo | 无 | 101、102 | 与 103 都改 bridge.js，排在 103 后；单独上线 |
+  | 5 | SK-C L2 … | Blocked | 101 | — | |
   ```
 
   Follow it with one sentence naming what to start now, what runs in parallel,
