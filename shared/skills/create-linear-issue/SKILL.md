@@ -15,8 +15,15 @@ pull requests and CI as supporting material.
 Use the named repository or the current workspace's `origin`. Follow the
 repository and shared agent instructions, including `docs/agents/issue-tracker.md`
 when present, to select the Linear project. For KngZhi engineering work, use
-workspace **SAOKO**, team **Enginer** (`ENG`), and the project for that repository.
-The **SAOKO team** holds business work and is a different destination.
+workspace **Claw3PO**, team **JUN** (key `SK`), and the project for that repository
+(see the shared instructions for the project list). Workspace SAOKO, team
+**SAOKO**, holds business work and is a different destination. The old team
+Enginer (`ENG`) is retired; `ENG-<n>` identifiers are history.
+
+The Linear MCP connector and `~/.local/bin/linear` reach SAOKO only. Reach
+Claw3PO through its GraphQL API with the key `op://DEV/Linear API/credential`
+(environment variable only). Before cancelling an Issue, move or unlink its
+linked GitHub PRs: cancelling closes them.
 
 Use the Linear connector to verify the workspace, team and project before
 writing. Resolve current workflow states, labels and assignment options from
@@ -134,7 +141,7 @@ without anyone reading the bodies.
 - **State tells whether work can start.** `Backlog` means not yet planned; do
   not use it for planned work that is waiting. Planned Issues with no open
   blocker go to `Todo`; planned Issues with an open `blockedBy` go to `Blocked`
-  (an unstarted state on team Enginer). Linear does not move them
+  (an unstarted state on team JUN). Linear does not move them
   automatically: when an Issue closes, move each Issue it blocked to `Todo` once
   its last blocker is done, and update the milestone table.
 - **Execution order.** Set each Issue's manual `sortOrder` in execution order
@@ -149,9 +156,9 @@ without anyone reading the bodies.
   ```markdown
   | 顺序 | Issue | 现在 | 要等 | 可同时做 | 注意 |
   |---|---|---|---|---|---|
-  | 1 | ENG-101 L1 … | Todo | 无 | 102、103 | 改 chile-ops |
-  | 4 | ENG-86 L6 … | Todo | 无 | 101、102 | 与 103 都改 bridge.js，排在 103 后；单独上线 |
-  | 5 | ENG-84 L2 … | Blocked | 101 | — | |
+  | 1 | SK-101 L1 … | Todo | 无 | 102、103 | 改 chile-ops |
+  | 4 | SK-86 L6 … | Todo | 无 | 101、102 | 与 103 都改 bridge.js，排在 103 后；单独上线 |
+  | 5 | SK-84 L2 … | Blocked | 101 | — | |
   ```
 
   Follow it with one sentence naming what to start now, what runs in parallel,

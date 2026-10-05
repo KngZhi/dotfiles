@@ -26,24 +26,36 @@ and inspect the existing result before considering another attempt.
 
 ## Issue tracking in Linear
 
-Engineering issues for KngZhi repositories live in Linear, workspace SAOKO, team
-**Enginer** (key `ENG`), one project per repository; the repository's
-`docs/agents/issue-tracker.md` names its project. Team **SAOKO** holds business
-work (suppliers, purchasing) and never gets engineering issues. GitHub keeps
-code, pull requests and CI.
+Engineering issues for KngZhi repositories live in Linear, workspace Claw3PO
+(`claw3po`), team **JUN** (key `SK`, issues `SK-<n>`), one project per
+repository where the team has one (today `chile-mono`, `order-printer`,
+`WhatsApp 独立服务（脱离 Hermes）`, `本机服务自动部署（精简版）`); the repository's
+`docs/agents/issue-tracker.md` names its project. Workspace SAOKO, team
+**SAOKO**, holds business work (suppliers, purchasing) and never gets
+engineering issues. The former SAOKO team Enginer (`ENG`) is retired (migrated
+2026-10-05; open issues became SK-1..47); `ENG-<n>` in older commits and docs
+are history. GitHub keeps code, pull requests and CI.
 
-- Triage roles map to Enginer's own fields, not extra labels: `Triage`
-  (needs triage), `等回复` (needs info), `Todo` delegated to an agent (ready for
+- Team JUN's workflow states: `Backlog`, `Todo`, `In Progress`, `In Review`,
+  `Done`, `Blocked`, `Canceled`, `Duplicate`. It has no `Triage` or `等回复`
+  state. Triage roles map to them: `Todo` delegated to an agent (ready for
   agent), `Todo` assigned to a human (ready for human), `Canceled` or
   `Duplicate` (won't fix). `Blocked` holds planned work waiting on an open
-  `blockedBy` Issue; `Backlog` is only for work not yet planned. Category uses the workspace labels `Bug`, `Feature`,
-  `Improvement`, and `RFC` for design discussion.
+  `blockedBy` Issue; `Backlog` is work not yet planned, the nearest state for an
+  issue awaiting triage. Needs-info has no state of its own: ask in a comment.
+  Category uses the team labels `Bug`,
+  `Feature`, `Improvement`, and `RFC` for design discussion (no other labels
+  exist on team JUN).
 - Never write a bare `#123` in a Linear body: the workspace GitHub integration
   links it to the wrong repository. Write `GH-123` or the full URL.
-- For settings the Linear MCP tools cannot change (teams, workflow states), use
-  the GraphQL API with the SAOKO key `op://DEV/Linear Cli SAOKO/credential`,
-  passed only through an environment variable. The `Linear API` item belongs to
-  a different workspace.
+- Cancelling a Linear issue that has linked GitHub PRs closes those PRs
+  (2026-10-05: cancelling ENG-149/ENG-151 closed GH-479/480/481). Move the PRs
+  to another issue or unlink them before cancelling.
+- Linear MCP tools and `~/.local/bin/linear` are connected to SAOKO only. For
+  Claw3PO (and for settings the MCP tools cannot change, such as teams and
+  workflow states) use the GraphQL API at `https://api.linear.app/graphql`
+  with the Claw3PO key `op://DEV/Linear API/credential`, passed only through an
+  environment variable. For SAOKO use `op://DEV/Linear Cli SAOKO/credential`.
 - Create and maintain issues through `create-linear-issue`. If the user
   explicitly requests a legacy workflow that requires a GitHub dispatch copy,
   keep Linear authoritative and link that copy both ways.
