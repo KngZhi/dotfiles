@@ -47,6 +47,27 @@ migrate-home-to xxx.local             # 正式跑，输两次密码后可以走�
 同步差量；`--mirror` 会连删除也同步，只在开始用新机之前用。微信本地库近 50 GB、虚拟机磁盘约 70 GB，默认不传，
 要传加 `--with-wechat`、`--with-vms`。
 
+#### 同步之后：让新机成为常开的开发机
+
+Air 以后只是终端，通过 herdr 连到这台机器上工作，所以它要一直在线，从店里也要能到。
+
+1. 接电源，不睡眠：`sudo pmset -c sleep 0 displaysleep 0`。合盖会睡眠，开着盖子或者接外接显示器。
+2. 装 Tailscale 并登录同一个账号。`migrate-home-to` 会把 App Store 版的 Tailscale.app 复制过来，
+   没有就从 App Store 装。之后一律用它的 MagicDNS 主机名访问（`tailscale status` 里显示，
+   形如 `xxx.tailxxxx.ts.net`），家里和店里都通；不要用 `192.168.x.x`。
+3. 远程登录保持打开（迁移前已经开了），给 Air 反向 SSH 用。
+4. 在 Air 上登记这台机器。`herdr machine add` 在你坐着的那台机器上跑，交互式，它会检查并按需安装远端的
+   herdr 服务端：
+
+   ```sh
+   ssh amd@xxx.tailxxxx.ts.net          # 先确认普通 SSH 能通
+   herdr machine add amd@xxx.tailxxxx.ts.net
+   ```
+
+   之后 Air 的 herdr 侧边栏里多出这台机器，Local 和它的工作区并排切换，两边各跑自己的服务端。
+5. 如果开了 FileVault，断电重启后会停在开机密码界面，人不在家就连不上。家里常开的机器要么关掉 FileVault，
+   要么配 UPS。
+
 ### 路线二：从零搭建
 
 按顺序执行，整个过程约一小时，大部分时间在 `brew bundle`。
