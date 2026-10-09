@@ -105,8 +105,11 @@ tolerate "${RS[@]}" "${DRY[@]}" "${MIRROR[@]}" -u --exclude-from="$EXCLUDES" "${
     "$HOME/" "$TARGET:$REMOTE_HOME/" | tail -16
 
 echo "==> 5/5 /Applications (only apps the new Mac lacks)"
-tolerate "${RS[@]}" "${DRY[@]}" -O --ignore-existing --exclude='/Safari.app' --exclude='/Utilities' \
-    /Applications/ "$TARGET:/Applications/" | tail -4
+# Skip bundles that already exist over there by name: --ignore-existing alone still
+# descends into them and tries to sync directory xattrs it has no right to touch.
+SKIP=(--exclude='/Safari.app' --exclude='/Utilities')
+while IFS= read -r app; do [ -n "$app" ] && SKIP+=("--exclude=/$app"); done < <("${SSH[@]}" 'ls /Applications')
+tolerate "${RS[@]}" "${DRY[@]}" -O "${SKIP[@]}" /Applications/ "$TARGET:/Applications/" | tail -4
 
 if [ ${#DRY[@]} -eq 0 ]; then
     "${SSH[@]}" "zsh -lc '$REMOTE_HOME/repo/dotfiles/link.sh >/dev/null; brew doctor'" || true
