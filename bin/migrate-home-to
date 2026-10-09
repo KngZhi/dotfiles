@@ -20,9 +20,9 @@
 #   5. /Applications  -> /Applications      (apps the new Mac does not have yet)
 #   then runs dotfiles/link.sh and brew doctor over there.
 #
-# Re-run any time: only changes are transferred. --mirror also deletes files on the
-# new Mac that no longer exist here (inside the synced home only). Use it before
-# you start working on the new Mac, never after. WeChat's local history (~50 GB) and
+# Re-run any time: only changes are transferred, and files that are newer on the new
+# Mac are kept. --mirror also deletes files on the new Mac that no longer exist here
+# (inside the synced home only); use it before you start working there, never after. WeChat's local history (~50 GB) and
 # virtual machine disks (~70 GB) are skipped unless --with-wechat / --with-vms.
 set -euo pipefail
 
@@ -90,7 +90,9 @@ else
 fi
 
 echo "==> 4/5 $HOME -> $TARGET:$REMOTE_HOME"
-"${RS[@]}" "${DRY[@]}" "${MIRROR[@]}" --exclude-from="$EXCLUDES" "${WECHAT[@]}" "${VMS[@]}" \
+# -u: a file that is newer on the new Mac is left alone, so re-running after you have
+# started working there only brings over what changed here.
+"${RS[@]}" "${DRY[@]}" "${MIRROR[@]}" -u --exclude-from="$EXCLUDES" "${WECHAT[@]}" "${VMS[@]}" \
     "$HOME/" "$TARGET:$REMOTE_HOME/" | tail -16
 
 echo "==> 5/5 /Applications (only apps the new Mac lacks)"

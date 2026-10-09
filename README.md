@@ -44,7 +44,7 @@ migrate-home-to xxx.local             # 正式跑，输两次密码后可以走�
 
 同步期间不要在新机上登录那个账户。跑完以后新机登录，登 Apple ID 和 1Password（开 CLI 集成），
 重新扫码 WhatsApp、Telegram，给 Raycast、Hammerspoon、Type4Me 重新授权。之后随时可以再跑一次
-同步差量；`--mirror` 会连删除也同步，只在开始用新机之前用。微信本地库近 50 GB、虚拟机磁盘约 70 GB，默认不传，
+同步差量，新机上更新过的文件不会被覆盖；`--mirror` 会连删除也同步，只在开始用新机之前用。微信本地库近 50 GB、虚拟机磁盘约 70 GB，默认不传，
 要传加 `--with-wechat`、`--with-vms`。
 
 #### 同步之后：让新机成为常开的开发机

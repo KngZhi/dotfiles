@@ -47,6 +47,11 @@
 /Library/Containers/com.agilebits.onepassword7.*/
 /Library/Group Containers/2BUA8C4S2C.com.1password/
 
+## Live state of servers that run independently on each machine
+/.config/herdr/*.sock
+/.config/herdr/*.log
+/.config/herdr/session.json
+
 ## Caches and rebuildable data
 /Library/Caches/
 /Library/Logs/
