@@ -61,6 +61,7 @@
 /Library/Developer/Xcode/DerivedData/
 /Library/Developer/CoreSimulator/Caches/
 /Library/pnpm/store/
+/go/pkg/mod/
 /.cache/
 /.npm/_cacache/
 /.Trash/
