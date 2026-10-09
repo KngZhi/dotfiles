@@ -1,0 +1,88 @@
+#!/bin/bash
+# Global pre-commit hook: ast-grep + ruff
+# Automatically applied to new git repos
+# Uses project venv ruff when available to respect pyproject.toml config
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+PY_FILES=$(echo "$STAGED_FILES" | grep -E '\.py$')
+
+EXIT_CODE=0
+
+# 1. ast-grep check (all files)
+if [ -n "$STAGED_FILES" ]; then
+    if command -v sg &> /dev/null; then
+        if [ -f "sgconfig.yml" ] || [ -f "sgconfig.yaml" ]; then
+            RESULT=$(sg scan $STAGED_FILES 2>&1)
+        else
+            RESULT=$(sg scan --config ~/.claude/ast-grep-rules/sgconfig.yml $STAGED_FILES 2>&1)
+        fi
+        SG_EXIT=$?
+        if [ $SG_EXIT -ne 0 ]; then
+            echo "$RESULT"
+            EXIT_CODE=1
+        fi
+    fi
+fi
+
+# 2. ruff check (Python files only)
+if [ -n "$PY_FILES" ]; then
+    # Find project venv by checking the first Python file's directory tree
+    FIRST_PY=$(echo "$PY_FILES" | head -1)
+    PROJECT_DIR=""
+    RUFF_CMD=""
+
+    if [ -n "$FIRST_PY" ]; then
+        check_dir=$(dirname "$REPO_ROOT/$FIRST_PY")
+        while [ "$check_dir" != "$REPO_ROOT" ] && [ "$check_dir" != "/" ] && [ -n "$check_dir" ]; do
+            if [ -x "$check_dir/venv/bin/ruff" ]; then
+                PROJECT_DIR="$check_dir"
+                RUFF_CMD="$check_dir/venv/bin/ruff"
+                break
+            fi
+            if [ -x "$check_dir/.venv/bin/ruff" ]; then
+                PROJECT_DIR="$check_dir"
+                RUFF_CMD="$check_dir/.venv/bin/ruff"
+                break
+            fi
+            check_dir=$(dirname "$check_dir")
+        done
+    fi
+
+    # Fall back to global ruff
+    if [ -z "$RUFF_CMD" ]; then
+        if command -v ruff &> /dev/null; then
+            RUFF_CMD="ruff"
+        fi
+    fi
+
+    if [ -n "$RUFF_CMD" ]; then
+        if [ -n "$PROJECT_DIR" ]; then
+            # Convert file paths to be relative to project dir
+            REL_FILES=""
+            PROJECT_REL="${PROJECT_DIR#$REPO_ROOT/}"
+            for f in $PY_FILES; do
+                rel="${f#$PROJECT_REL/}"
+                REL_FILES="$REL_FILES $rel"
+            done
+            echo "Running ruff (from $PROJECT_REL/venv) on Python files..."
+            (cd "$PROJECT_DIR" && "$RUFF_CMD" check $REL_FILES)
+        else
+            echo "Running ruff (global) on Python files..."
+            $RUFF_CMD check $PY_FILES
+        fi
+        if [ $? -ne 0 ]; then
+            EXIT_CODE=1
+        fi
+    fi
+fi
+
+if [ $EXIT_CODE -ne 0 ]; then
+    echo ""
+    echo "❌ Pre-commit checks failed. Fix issues before committing."
+    echo "   To bypass (not recommended): git commit --no-verify"
+    exit 1
+fi
+
+echo "✅ Pre-commit checks passed"
+exit 0

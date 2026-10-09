@@ -22,3 +22,6 @@ claude/skills/*
 # Emacs generated directories
 emacs/projects
 emacs/transient/
+
+# Global ~/.gitignore_global ignores *.env.*; this template holds op:// references only.
+!agent-secrets/agent-secrets.env.tpl

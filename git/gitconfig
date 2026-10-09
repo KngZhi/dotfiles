@@ -1,0 +1,9 @@
+# This is Git's per-user configuration file.
+[user]
+	name = junwei.chen
+	email = kngzhi@hotmail.com
+[core]
+	excludesFile = ~/.gitignore_global
+	quotepath = false
+[init]
+	templateDir = ~/.git-templates

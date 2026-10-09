@@ -1,0 +1,47 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# Linux
+*~
+
+# IDE / Editor
+.idea/
+.vscode/
+*.code-workspace
+*.suo
+*.user
+*.log
+
+# Node / Yarn / pnpm
+node_modules/
+dist/
+.cache/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Secrets
+*.pem
+*.key
+*.p12
+*.env
+*.env.*
+.claude-trace/
+.claude-trace/
+
+**/.claude/settings.local.json
+
+**/.claude/settings.local.json
+.loopx/
+.codex/goals/
+.local/
+.claude/loop.md
