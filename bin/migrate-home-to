@@ -24,7 +24,7 @@
 # Mac are kept. --mirror also deletes files on the new Mac that no longer exist here
 # (inside the synced home only); use it before you start working there, never after. WeChat's local history (~50 GB) and
 # virtual machine disks (~70 GB) are skipped unless --with-wechat / --with-vms.
-set -euo pipefail
+set -eo pipefail   # not -u: bash 3.2 treats an empty array expansion as unbound
 
 DOTFILES_DIR="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 EXCLUDES="$DOTFILES_DIR/migrate/home-excludes.txt"
