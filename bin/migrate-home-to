@@ -69,12 +69,18 @@ if "${SSH[@]}" "who | grep -q '^$REMOTE_USER  *console'"; then
     echo "$REMOTE_USER is logged in at the remote console; log out there first" >&2; exit 1
 fi
 
-if [ ${#DRY[@]} -eq 0 ]; then
+# /opt/homebrew must exist and be writable by the remote user. Done here with sudo when
+# a terminal is attached; when running unattended, prepare it beforehand:
+#   ssh -t user@host 'sudo mkdir -p /opt/homebrew && sudo chown "$USER":admin /opt/homebrew'
+if "${SSH[@]}" 'test -d /opt/homebrew -a -w /opt/homebrew'; then
+    echo "==> 2/5 remote prep already done"
+elif [ ${#DRY[@]} -eq 0 ]; then
     echo "==> 2/5 remote prep (remote sudo password)"
-    "${SSH[@]}" -t 'sudo mkdir -p /opt/homebrew && sudo chown "$USER":admin /opt/homebrew && mkdir -p ~/Library/LaunchAgents'
+    "${SSH[@]}" -t 'sudo mkdir -p /opt/homebrew && sudo chown "$USER":admin /opt/homebrew'
 else
     echo "==> 2/5 remote prep skipped (dry run)"
 fi
+"${SSH[@]}" 'mkdir -p ~/Library/LaunchAgents'
 
 # Phase 3 uses the system rsync on both ends: Homebrew rsync does not exist on the
 # new Mac until /opt/homebrew has arrived. Afterwards both ends run Homebrew rsync,
@@ -100,7 +106,7 @@ echo "==> 5/5 /Applications (only apps the new Mac lacks)"
     /Applications/ "$TARGET:/Applications/" | tail -4 || echo "(some apps could not be copied; see above)"
 
 if [ ${#DRY[@]} -eq 0 ]; then
-    "${SSH[@]}" -t "$REMOTE_HOME/repo/dotfiles/link.sh >/dev/null; /opt/homebrew/bin/brew doctor" || true
+    "${SSH[@]}" "zsh -lc '$REMOTE_HOME/repo/dotfiles/link.sh >/dev/null; brew doctor'" || true
     cat <<MSG
 
 Done. On the new Mac, log in as $REMOTE_USER and:
