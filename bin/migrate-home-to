@@ -98,12 +98,15 @@ fi
 echo "==> 4/5 $HOME -> $TARGET:$REMOTE_HOME"
 # -u: a file that is newer on the new Mac is left alone, so re-running after you have
 # started working there only brings over what changed here.
-"${RS[@]}" "${DRY[@]}" "${MIRROR[@]}" -u --exclude-from="$EXCLUDES" "${WECHAT[@]}" "${VMS[@]}" \
+# rsync exits 23/24 when a few files could not be read or vanished mid-run; the rest
+# of the tree is fine and a re-run picks them up, so those codes do not stop the script.
+tolerate() { "$@"; local rc=${PIPESTATUS[0]}; case $rc in 0|23|24) return 0 ;; *) return $rc ;; esac; }
+tolerate "${RS[@]}" "${DRY[@]}" "${MIRROR[@]}" -u --exclude-from="$EXCLUDES" "${WECHAT[@]}" "${VMS[@]}" \
     "$HOME/" "$TARGET:$REMOTE_HOME/" | tail -16
 
 echo "==> 5/5 /Applications (only apps the new Mac lacks)"
-"${RS[@]}" "${DRY[@]}" -O --ignore-existing --exclude='/Safari.app' --exclude='/Utilities' \
-    /Applications/ "$TARGET:/Applications/" | tail -4 || echo "(some apps could not be copied; see above)"
+tolerate "${RS[@]}" "${DRY[@]}" -O --ignore-existing --exclude='/Safari.app' --exclude='/Utilities' \
+    /Applications/ "$TARGET:/Applications/" | tail -4
 
 if [ ${#DRY[@]} -eq 0 ]; then
     "${SSH[@]}" "zsh -lc '$REMOTE_HOME/repo/dotfiles/link.sh >/dev/null; brew doctor'" || true

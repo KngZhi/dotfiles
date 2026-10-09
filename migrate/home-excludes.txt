@@ -10,6 +10,7 @@
 /repo/*.trigger-dev-*/
 /Library/Containers/com.docker.docker/
 /Library/Group Containers/group.com.docker/
+/.hermes/document_cache/
 
 ## Device-bound state: the new Mac builds its own
 /Library/Keychains/*/
