@@ -1,0 +1,61 @@
+# Exclude list for migrate-home-to (rsync --exclude-from). Patterns are relative to
+# $HOME. A leading slash anchors at the home root; a trailing slash matches
+# directories only. Lines starting with # are comments.
+
+## Server role: stays on the old Mac (see README, A -> B cutover)
+/Library/LaunchAgents/
+/services/
+/repo/worktrees/
+/repo/*-worktrees/
+/repo/*.trigger-dev-*/
+/Library/Containers/com.docker.docker/
+/Library/Group Containers/group.com.docker/
+
+## Device-bound state: the new Mac builds its own
+/Library/Keychains/*/
+/Library/Application Support/com.apple.TCC/
+/Library/Accounts/
+/Library/IdentityServices/
+/Library/HomeKit/
+/Library/Biome/
+/Library/Trial/
+/Library/Daemon Containers/
+/Library/Preferences/ByHost/
+/Library/Saved Application State/
+/Library/Application Support/FileProvider/
+
+## Cloud-synced: re-downloads after signing in
+/Library/Mobile Documents/
+/Library/Application Support/CloudDocs/
+/Library/CloudStorage/
+/Library/Group Containers/UBF8T346G9.OneDriveStandaloneSuite/
+/Library/Group Containers/UBF8T346G9.OfficeOneDriveSyncIntegration/
+/Library/Containers/com.microsoft.OneDrive*/
+/Library/Mail/
+/Library/Messages/
+/Library/Safari/
+/Library/Containers/com.apple.*/
+/Library/Group Containers/group.com.apple.*/
+
+## Linked-device sessions: copying them clones the device identity; re-link instead
+/Library/Containers/net.whatsapp.*/
+/Library/Group Containers/group.net.whatsapp.*/
+/Library/Containers/ru.keepcoder.Telegram*/
+/Library/Group Containers/6N38VWS5BX.ru.keepcoder.Telegram*/
+/Library/Containers/com.1password.*/
+/Library/Containers/2BUA8C4S2C.com.1password*/
+/Library/Containers/com.agilebits.onepassword7.*/
+/Library/Group Containers/2BUA8C4S2C.com.1password/
+
+## Caches and rebuildable data
+/Library/Caches/
+/Library/Logs/
+/Library/Metadata/CoreSpotlight/
+/Library/Application Support/MobileSync/
+/Library/Developer/Xcode/DerivedData/
+/Library/Developer/CoreSimulator/Caches/
+/Library/pnpm/store/
+/.cache/
+/.npm/_cacache/
+/.Trash/
+.DS_Store

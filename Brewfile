@@ -76,6 +76,8 @@ brew "pipx"
 brew "poppler"
 # Search tool like grep and The Silver Searcher
 brew "ripgrep"
+# Utility that provides fast incremental file transfer
+brew "rsync"
 # CLI proxy to minimize LLM token consumption
 brew "rtk"
 # Multi-modal AI tool to extract and summarize content

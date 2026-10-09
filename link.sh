@@ -41,13 +41,23 @@ link zsh/.zshenv   "$H/.zshenv"
 link zsh/.zprofile "$H/.zprofile"
 link zsh/.zshrc    "$H/.zshrc"
 
-# git
-link git/gitconfig        "$H/.gitconfig"
+# git: ~/.gitconfig stays a real, machine-local file because tools append to it
+# (GitHub Actions runners add safe.directory on every job); it includes the tracked one.
+gitconfig_include() {
+    local dst="$H/.gitconfig" inc="path = $DOTFILES_DIR/git/gitconfig"
+    [ -L "$dst" ] && rm "$dst"        # earlier link.sh linked it directly
+    if ! grep -qsF "$inc" "$dst"; then
+        printf '[include]\n\t%s\n' "$inc" >> "$dst"
+        echo "include added: $dst -> git/gitconfig"
+    fi
+}
+gitconfig_include
 link git/gitignore_global "$H/.gitignore_global"
 link git/templates        "$H/.git-templates"
 
 # agent secrets: template holds op:// references only; the rendered .env stays local
 link bin/refresh-agent-secrets          "$H/.local/bin/refresh-agent-secrets"
+link bin/migrate-home-to                "$H/.local/bin/migrate-home-to"
 link agent-secrets/agent-secrets.env.tpl "$H/.config/agent-secrets/agent-secrets.env.tpl"
 
 # editors

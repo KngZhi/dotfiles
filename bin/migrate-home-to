@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# Copy this Mac's user environment to a new Apple Silicon Mac over SSH, leaving the
+# server role behind (launchd services, GitHub runners, Docker VM, agent worktrees).
+#
+#   migrate-home-to [--dry-run] [--mirror] [--with-wechat] [--with-vms] [user@]host
+#
+# One-time setup on the new Mac, in System Settings:
+#   1. Users & Groups: create an *admin* account with the same short name and
+#      password as this one, so the copied login keychain opens without prompts.
+#   2. General > Sharing > Remote Login: on, for all users, with
+#      "Allow full disk access for remote users" ticked.
+#   Do not log in as that account on the new Mac while this runs; a logged-in
+#   session would write cached preferences back over the copied ones.
+#
+# What happens, in order:
+#   1. SSH key access (asks for the remote password once if needed)
+#   2. remote prep: /opt/homebrew owned by the user (asks for the remote sudo password)
+#   3. /opt/homebrew  -> same path          (full Homebrew install, same versions)
+#   4. $HOME          -> /Users/<user>      (minus migrate/home-excludes.txt)
+#   5. /Applications  -> /Applications      (apps the new Mac does not have yet)
+#   then runs dotfiles/link.sh and brew doctor over there.
+#
+# Re-run any time: only changes are transferred. --mirror also deletes files on the
+# new Mac that no longer exist here (inside the synced home only). Use it before
+# you start working on the new Mac, never after. WeChat's local history (~50 GB) and
+# virtual machine disks (~70 GB) are skipped unless --with-wechat / --with-vms.
+set -euo pipefail
+
+DOTFILES_DIR="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+EXCLUDES="$DOTFILES_DIR/migrate/home-excludes.txt"
+WECHAT_EXCLUDES="$DOTFILES_DIR/migrate/wechat-excludes.txt"
+VM_EXCLUDES="$DOTFILES_DIR/migrate/vm-excludes.txt"
+BREW_RSYNC=/opt/homebrew/bin/rsync
+
+usage() { sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'; }
+
+DRY=(); MIRROR=(); WECHAT=("--exclude-from=$WECHAT_EXCLUDES"); VMS=("--exclude-from=$VM_EXCLUDES"); TARGET=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --dry-run)     DRY=(--dry-run) ;;
+        --mirror)      MIRROR=(--delete) ;;
+        --with-wechat) WECHAT=() ;;
+        --with-vms)    VMS=() ;;
+        -h|--help)     usage; exit 0 ;;
+        -*)            echo "unknown option: $1" >&2; exit 2 ;;
+        *)             TARGET="$1" ;;
+    esac
+    shift
+done
+[ -n "$TARGET" ] || { usage >&2; exit 2; }
+case "$TARGET" in *@*) ;; *) TARGET="$USER@$TARGET" ;; esac
+REMOTE_USER="${TARGET%@*}"
+REMOTE_HOME="/Users/$REMOTE_USER"
+
+[ "$(uname -m)" = arm64 ] || { echo "this Mac is $(uname -m); /opt/homebrew would be the wrong Homebrew" >&2; exit 1; }
+[ -x "$BREW_RSYNC" ] || { echo "Homebrew rsync is required here: brew install rsync" >&2; exit 1; }
+[ -f "$EXCLUDES" ] || { echo "missing $EXCLUDES" >&2; exit 1; }
+[ "$REMOTE_USER" = "$USER" ] || echo "warning: remote user is $REMOTE_USER but configs here hardcode /Users/$USER" >&2
+
+SSH=(ssh -o StrictHostKeyChecking=accept-new "$TARGET")
+
+echo "==> 1/5 SSH access to $TARGET"
+if ! ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$TARGET" true 2>/dev/null; then
+    ssh-copy-id "$TARGET"
+fi
+remote_arch="$("${SSH[@]}" uname -m)"
+[ "$remote_arch" = arm64 ] || { echo "remote Mac is $remote_arch, not arm64; use brew bundle there instead" >&2; exit 1; }
+if "${SSH[@]}" "who | grep -q '^$REMOTE_USER  *console'"; then
+    echo "$REMOTE_USER is logged in at the remote console; log out there first" >&2; exit 1
+fi
+
+if [ ${#DRY[@]} -eq 0 ]; then
+    echo "==> 2/5 remote prep (remote sudo password)"
+    "${SSH[@]}" -t 'sudo mkdir -p /opt/homebrew && sudo chown "$USER":admin /opt/homebrew && mkdir -p ~/Library/LaunchAgents'
+else
+    echo "==> 2/5 remote prep skipped (dry run)"
+fi
+
+# Phase 3 uses the system rsync on both ends: Homebrew rsync does not exist on the
+# new Mac until /opt/homebrew has arrived. Afterwards both ends run Homebrew rsync,
+# which handles macOS extended attributes (-X) and reports overall progress.
+echo "==> 3/5 /opt/homebrew ($(du -sh /opt/homebrew 2>/dev/null | cut -f1))"
+/usr/bin/rsync -rlptDH --partial --stats "${DRY[@]}" /opt/homebrew/ "$TARGET:/opt/homebrew/" | tail -4
+
+if "${SSH[@]}" test -x "$BREW_RSYNC"; then
+    RS=("$BREW_RSYNC" --rsync-path="$BREW_RSYNC" -rlptDHX --partial --stats --info=progress2)
+else
+    echo "(remote has no Homebrew rsync yet; dry run continues with the system rsync)"
+    RS=(/usr/bin/rsync -rlptDHE --partial --stats)
+fi
+
+echo "==> 4/5 $HOME -> $TARGET:$REMOTE_HOME"
+"${RS[@]}" "${DRY[@]}" "${MIRROR[@]}" --exclude-from="$EXCLUDES" "${WECHAT[@]}" "${VMS[@]}" \
+    "$HOME/" "$TARGET:$REMOTE_HOME/" | tail -16
+
+echo "==> 5/5 /Applications (only apps the new Mac lacks)"
+"${RS[@]}" "${DRY[@]}" -O --ignore-existing --exclude='/Safari.app' --exclude='/Utilities' \
+    /Applications/ "$TARGET:/Applications/" | tail -4 || echo "(some apps could not be copied; see above)"
+
+if [ ${#DRY[@]} -eq 0 ]; then
+    "${SSH[@]}" -t "$REMOTE_HOME/repo/dotfiles/link.sh >/dev/null; /opt/homebrew/bin/brew doctor" || true
+    cat <<MSG
+
+Done. On the new Mac, log in as $REMOTE_USER and:
+  - sign in to Apple ID; iCloud Drive, Mail, Notes, Safari and Wi-Fi passwords come back from iCloud
+  - open 1Password, sign in, enable the CLI integration (Settings > Developer)
+  - re-link WhatsApp and Telegram (QR code); they were skipped on purpose
+  - re-grant Accessibility / Screen Recording to Raycast, Hammerspoon, Type4Me
+  - apps that install helpers (Docker, Tailscale, Logi Options+, VMware) will ask again on first launch
+Run this command again later to sync what changed on the old Mac in the meantime.
+MSG
+fi

@@ -1,0 +1,6 @@
+# Virtual machine disks (a 65 GB Windows 11 VM lives in ~/Documents). Skipped unless
+# migrate-home-to is given --with-vms.
+*.vmwarevm/
+*.utm/
+*.pvm/
+/Virtual Machines.localized/

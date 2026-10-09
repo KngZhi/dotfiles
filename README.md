@@ -8,17 +8,46 @@
 | 目录 | 内容 | 接入方式 |
 |---|---|---|
 | `zsh/` | `.zshenv` `.zprofile` `.zshrc` | 软链接 |
-| `git/` | `gitconfig` `gitignore_global` `templates/`（全局 pre-commit） | 软链接 |
+| `git/` | `gitconfig` `gitignore_global` `templates/`（全局 pre-commit） | `~/.gitconfig` 是本机文件，`include` 仓库里的；其余软链接 |
 | `nvim/` `emacs/` | 编辑器配置 | 软链接到 `~/.config/nvim`、`~/.emacs.d` |
 | `claude/` | agents、hooks、commands、statusline、ast-grep 规则、`CLAUDE.md` | 软链接；`settings.json` 只在缺失时复制一份 |
 | `codex/` | `rules/`、Codex 专属 skills | 软链接；`config.toml` 只在缺失时复制一份 |
 | `shared/` | 两边共用的 skills、`agent-instructions.md`、第三方 skill 包清单 | `shared/build.sh` 生成并链接 |
-| `bin/` `agent-secrets/` | `refresh-agent-secrets` 和它渲染的 `op://` 模板（只有引用，没有秘密） | 软链接到 `~/.local/bin`、`~/.config/agent-secrets` |
+| `bin/` `agent-secrets/` | `refresh-agent-secrets` 和它渲染的 `op://` 模板（只有引用，没有秘密）；`migrate-home-to` | 软链接到 `~/.local/bin`、`~/.config/agent-secrets` |
+| `migrate/` | `migrate-home-to` 的 rsync 排除规则 | 脚本读取 |
 | `Brewfile` | Homebrew formula、cask、VS Code 扩展、npm/uv 全局包 | `brew bundle` |
 
 `claude/settings.json` 和 `codex/config.toml` 不做软链接：前者 Claude Code 会自己改写，后者在本机版本里含 MCP 服务的 API key。仓库里的副本只是起点。
 
-## 新机器（主力开发机）
+## 新机器
+
+两条路线。同为 Apple Silicon 的主力开发机走路线一；Intel 机器或想要干净环境走路线二。
+
+### 路线一：整机同步（推荐，Apple Silicon → Apple Silicon）
+
+`bin/migrate-home-to` 从旧机出发，用 rsync 通过 SSH 把 Homebrew、整个家目录和 `/Applications`
+复制到新机，排除掉服务器角色的东西（`~/Library/LaunchAgents`、`~/services`、Docker 虚拟机、
+agent worktree）、设备绑定的数据和缓存。排除规则在 `migrate/home-excludes.txt`，有注释。
+系统设置、App 偏好、登录钥匙串、`~/.claude`、`~/.codex`、agent 密钥都在家目录里，一起过去。
+
+新机上只需在系统设置里做两件事：
+
+1. 用户与群组：新建一个**管理员**账户，短名称和密码都与旧机相同（钥匙串靠它直接解锁）。
+2. 通用 → 共享 → 远程登录：打开，允许所有用户，勾上「允许远程用户完全访问磁盘」。
+
+然后回到旧机：
+
+```sh
+migrate-home-to --dry-run xxx.local   # 先看会传什么
+migrate-home-to xxx.local             # 正式跑，输两次密码后可以走开
+```
+
+同步期间不要在新机上登录那个账户。跑完以后新机登录，登 Apple ID 和 1Password（开 CLI 集成），
+重新扫码 WhatsApp、Telegram，给 Raycast、Hammerspoon、Type4Me 重新授权。之后随时可以再跑一次
+同步差量；`--mirror` 会连删除也同步，只在开始用新机之前用。微信本地库近 50 GB、虚拟机磁盘约 70 GB，默认不传，
+要传加 `--with-wechat`、`--with-vms`。
+
+### 路线二：从零搭建
 
 按顺序执行，整个过程约一小时，大部分时间在 `brew bundle`。
 
