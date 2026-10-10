@@ -102,7 +102,6 @@ source $ZSH/oh-my-zsh.sh
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
-export CN_PREFIX="$HOME/repo/claude-cn"
 
 # bun completions (懒加载 - 输入 bun 后按 tab 时才加载)
 _bun_lazy_load() {
@@ -114,22 +113,15 @@ compdef _bun_lazy_load bun 2>/dev/null
 # bun
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
-export CC=/opt/homebrew/bin/gcc-15
-export CXX=/opt/homebrew/bin/g++-15
-alias ccn-yolo="ccn --dangerously-skip-permissions"
-alias ccn-add-mcp="ccn mcp add-from-claude-desktop"
+export CC=/opt/homebrew/bin/gcc-16
+export CXX=/opt/homebrew/bin/g++-16
 
 alias cc="claude"
 # alias ccy="claude --dangerously-skip-permissions"
 alias cc-add-mcp="claude mcp add-from-claude-desktop"
 alias cc-yolo="claude --dangerously-skip-permissions"
 alias ccy="claude --dangerously-skip-permissions --teammate-mode in-process"
-alias ccn='npx --registry=https://registry.npmmirror.com https://gaccode.com/claudecode/install'
 
-# Created by `pipx` on 2025-07-20 16:23:19
-export PATH="$HOME/.local/bin:$PATH"
-alias cc-mcp="$HOME/Library/Application\ Support/Claude/claude_desktop_config.json$HOME/Library/Application\ Support/Claude/claude_desktop_config.json"
-alias cx='codex --config model_reasoning_effort="high"'
 
 # omnara
 export OMNARA_INSTALL="$HOME/.omnara"

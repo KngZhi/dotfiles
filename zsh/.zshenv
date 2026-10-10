@@ -1,3 +1,6 @@
+# Keep PATH and fpath free of duplicates (brew shellenv, .zprofile and .zshrc each add entries).
+typeset -U path PATH fpath FPATH
+
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
 # Load SAOKO/Shopify sync credentials for all shells (file is chmod 600, gitignored)
