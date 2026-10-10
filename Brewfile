@@ -1,8 +1,5 @@
 tap "antoniorodr/memo"
-tap "d12frosted/emacs-plus"
-tap "dyndynjyxa/aio-coding-hub"
-tap "farion1231/ccswitch"
-tap "iina/mpv-iina"
+tap "d12frosted/emacs-plus", trusted: true
 tap "keith/formulae", trusted: { formulae: ["reminders-cli"] }
 tap "openclaw/tap"
 tap "steipete/tap"
@@ -20,6 +17,8 @@ brew "csvkit"
 brew "deno"
 # Embeddable SQL OLAP Database Management System
 brew "duckdb"
+# GNU Emacs text editor
+brew "d12frosted/emacs-plus/emacs-plus@31"
 # Validate EPUB files, version 2.0 and later
 brew "epubcheck"
 # Speech synthesizer that supports more than hundred languages and accents
@@ -36,8 +35,6 @@ brew "flyctl"
 brew "gcc"
 # Open-source, cross-platform JavaScript runtime environment
 brew "node"
-# Interact with Google Gemini AI models from the command-line
-brew "gemini-cli"
 # GitHub command-line tool
 brew "gh"
 # Distributed revision control system
@@ -100,22 +97,18 @@ brew "whisper.cpp"
 brew "wmctrl"
 # CLI for Git worktree management, designed for parallel AI agent workflows
 brew "worktrunk"
-# Fast CSV toolkit written in Rust
-brew "xsv"
 # JavaScript package manager
 brew "yarn"
-# Download YouTube videos from the command-line
-brew "youtube-dl"
 # Feature-rich command-line audio/video downloader
 brew "yt-dlp"
 # Pluggable terminal workspace, with terminal multiplexer as the base feature
 brew "zellij"
 # Google CLI for Gmail, Calendar, Drive, Docs, Sheets, and more
 brew "openclaw/tap/gogcli", trusted: true
+# Password manager that keeps all passwords secure behind one password
+cask "1password"
 # Command-line interface for 1Password
 cask "1password-cli"
-# Local AI CLI unified gateway
-cask "dyndynjyxa/aio-coding-hub/aio-coding-hub", trusted: true
 # Android SDK component
 cask "android-platform-tools"
 # Memory training application
@@ -126,12 +119,16 @@ cask "betterzip"
 cask "bitwarden"
 # OpenAI's official ChatGPT desktop app
 cask "chatgpt"
+# OpenAI's coding agent that runs in your terminal
+cask "codex"
 # Claude code parallelisation
 cask "conductor"
 # Voice and text chat software
 cask "discord"
 # App to build and share containerised applications and microservices
 cask "docker-desktop"
+# Chinese input method with voice input and intelligent suggestions
+cask "doubaoime"
 # Terminal emulator that uses platform-native UI and GPU acceleration
 cask "ghostty"
 # Web browser
@@ -150,12 +147,6 @@ cask "linear"
 cask "logi-options+"
 # Provides updates to various Microsoft products
 cask "microsoft-auto-update"
-# Office suite
-cask "microsoft-office"
-# App to write, plan, collaborate, and get organised
-cask "notion"
-# Knowledge base that works on top of a local folder of plain text Markdown files
-cask "obsidian"
 # Android file transfer
 cask "openmtp"
 # Self-hosted daemon for AI coding agents
@@ -168,16 +159,10 @@ cask "tableplus"
 cask "telegram"
 # Open-source BitTorrent client
 cask "transmission"
-# AI image upscaler
-cask "upscayl"
 # Open-source code editor
 cask "visual-studio-code"
-# Rust-based terminal
-cask "warp"
 # Native desktop client for WhatsApp
 cask "whatsapp"
-# Voice-to-text dictation with AI-powered auto-editing
-cask "wispr-flow"
 # AI agent for everyday office work
 cask "workbuddy-cn"
 # AI-assisted development environment
