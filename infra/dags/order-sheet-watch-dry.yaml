@@ -7,6 +7,10 @@ steps:
     command: git -C $HOME/repo/chile-ops pull -q --ff-only
   - name: run-dry
     depends: pull-chile-ops
+    retry_policy:          # exit 2 = sheet could not be read completely; safe to retry after a pause
+      limit: 2
+      interval_sec: 300
+      exit_code: [2]
     working_dir: $HOME/repo/chile-ops
     script: |
       set -euo pipefail
