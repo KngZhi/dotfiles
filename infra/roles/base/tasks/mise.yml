@@ -19,10 +19,14 @@
     mode: "0644"
   register: mise_cfg
 
+- name: Runtimes still missing
+  ansible.builtin.command: "{{ local_bin }}/mise ls --missing --json"
+  register: mise_missing
+  changed_when: false
+
 - name: Install pinned runtimes
   ansible.builtin.command: "{{ local_bin }}/mise install --yes"
-  register: mise_install
-  changed_when: "'installed' in mise_install.stderr or 'installed' in mise_install.stdout"
+  when: (mise_missing.stdout | from_json) | length > 0
   environment:
     MISE_YES: "1"
 
