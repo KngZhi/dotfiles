@@ -6,6 +6,7 @@ steps:
   - name: air-reachable
     command: /usr/local/bin/tailscale ping --c 2 --timeout 5s 100.70.111.73
   - name: k2046-mcp-responds
+    depends: air-reachable
     script: |
       code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://mcp.saokos.cl/health)
       echo "http $code"

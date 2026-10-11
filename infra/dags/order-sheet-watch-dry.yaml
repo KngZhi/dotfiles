@@ -1,0 +1,17 @@
+name: order-sheet-watch-dry
+description: order-sheet-watch 的只读版：打印会发什么，不写 Linear。手动触发，无排程。
+hist_retention_days: 30
+max_active_runs: 1
+steps:
+  - name: pull-chile-ops
+    command: git -C $HOME/repo/chile-ops pull -q --ff-only
+  - name: run-dry
+    depends: pull-chile-ops
+    working_dir: $HOME/repo/chile-ops
+    script: |
+      set -euo pipefail
+      export OP_SERVICE_ACCOUNT_TOKEN="$(security find-generic-password -s op-service-account -w)"
+      export LINEAR_API_KEY="$(op read 'op://DEV/Linear Cli SAOKO/credential')"
+      python3 skills/post-order-follow-up/scripts/order_watch_run.py \
+        --config skills/post-order-follow-up/order_watch.json \
+        --state-root "$HOME/.local/state/chile-ops/order-sheet-watch"
