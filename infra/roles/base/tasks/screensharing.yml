@@ -1,6 +1,10 @@
 # macOS Screen Sharing (VNC on 5900) so the operator can reach the server's GUI session over
 # Tailscale from any of the Macs; needed for one-time sign-ins (OneDrive, Google Drive, 1Password).
 # The group com.apple.access_screensharing lists who may connect; empty group = nobody.
+# First enablement must be done once in System Settings > Sharing on the machine itself (2026-10-11:
+# enabling only via launchctl answered on 5900 but every RSA-SRP login failed; kickstart from SSH
+# made it worse by turning on Remote Management, which greys out the Screen Sharing toggle). These
+# tasks only keep it enabled and keep the account allowed afterwards.
 - name: Screen Sharing enabled
   become: true
   ansible.builtin.shell: |
