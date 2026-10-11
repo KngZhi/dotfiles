@@ -1,0 +1,79 @@
+- name: "{{ r.name }}: paths"
+  ansible.builtin.set_fact:
+    runner_dir: "{{ runners_root }}/{{ r.name }}"
+    svc_label: "actions.runner.{{ github_owner }}-{{ r.repo }}.{{ runner_name_prefix }}-{{ r.name }}"
+
+- name: "{{ r.name }}: already configured?"
+  ansible.builtin.stat:
+    path: "{{ runner_dir }}/.runner"
+  register: cfg
+
+- name: "{{ r.name }}: unpack runner"
+  ansible.builtin.unarchive:
+    src: "{{ runners_root }}/_pkg/actions-runner-osx-x64-{{ runner_version }}.tar.gz"
+    dest: "{{ runner_dir }}"
+    remote_src: true
+    creates: "{{ runner_dir }}/config.sh"
+  when: not cfg.stat.exists
+
+- name: "{{ r.name }}: registration token (control node, never logged)"
+  ansible.builtin.command: gh api -X POST repos/{{ github_owner }}/{{ r.repo }}/actions/runners/registration-token --jq .token
+  delegate_to: localhost
+  register: reg_token
+  no_log: true
+  changed_when: false
+  when: not cfg.stat.exists
+
+- name: "{{ r.name }}: register with GitHub (login shell so .path gets mise shims)"
+  ansible.builtin.command: >
+    /bin/zsh -lc 'cd {{ runner_dir }} && ./config.sh --unattended --replace
+    --url https://github.com/{{ github_owner }}/{{ r.repo }} --token "$RUNNER_TOKEN"
+    --name {{ runner_name_prefix }}-{{ r.name }} --labels {{ r.labels | join(",") }} --work _work'
+  environment:
+    RUNNER_TOKEN: "{{ reg_token.stdout }}"
+  no_log: true
+  when: not cfg.stat.exists
+
+- name: "{{ r.name }}: runsvc.sh, .service, log dir (what svc.sh install would write)"
+  ansible.builtin.copy:
+    src: "{{ runner_dir }}/bin/runsvc.sh"
+    dest: "{{ runner_dir }}/runsvc.sh"
+    remote_src: true
+    mode: "0755"
+
+- name: "{{ r.name }}: .service"
+  ansible.builtin.copy:
+    content: "{{ ansible_env.HOME }}/Library/LaunchAgents/{{ svc_label }}.plist\n"
+    dest: "{{ runner_dir }}/.service"
+    mode: "0644"
+
+- name: "{{ r.name }}: log dir"
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/Library/Logs/{{ svc_label }}"
+    state: directory
+    mode: "0755"
+
+- name: "{{ r.name }}: LaunchAgent plist"
+  ansible.builtin.template:
+    src: runner.plist.j2
+    dest: "{{ ansible_env.HOME }}/Library/LaunchAgents/{{ svc_label }}.plist"
+    mode: "0644"
+  register: plist
+
+- name: "{{ r.name }}: loaded?"
+  ansible.builtin.command: launchctl print gui/{{ ansible_user_uid }}/{{ svc_label }}
+  register: loaded
+  changed_when: false
+  failed_when: false
+  when: gui_domain.rc == 0
+
+- name: "{{ r.name }}: (re)load into the GUI session"
+  ansible.builtin.shell: |
+    launchctl bootout gui/{{ ansible_user_uid }}/{{ svc_label }} 2>/dev/null || true
+    launchctl bootstrap gui/{{ ansible_user_uid }} "{{ ansible_env.HOME }}/Library/LaunchAgents/{{ svc_label }}.plist"
+  when: gui_domain.rc == 0 and (loaded.rc != 0 or plist.changed)
+
+- name: "{{ r.name }}: no GUI session yet"
+  ansible.builtin.debug:
+    msg: "plist installed; it loads when {{ ansible_user_id }} logs in at the console (autologin + reboot)"
+  when: gui_domain.rc != 0

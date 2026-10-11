@@ -46,3 +46,19 @@ services:
     python: "3.12"
     before_move: "deploy.sh needs a deploy lock and group rollback (ENG-104); WAHA image must be an amd64 tag"
     single_session: true
+
+# GitHub self-hosted runners. KngZhi is a personal account, so runners are per repository.
+# chile-mono gets three (most of the work happens there), the rest one each: 7 listeners.
+runner_version: "2.338.0"
+runner_sha256: dea7a58796ce215fc424a8b27c0fdd9b813fa5fc03d109a4a1d38131d6bfa1a3   # actions-runner-osx-x64
+runners_root: "{{ ansible_env.HOME }}/services/github-runners"
+github_owner: KngZhi
+runner_name_prefix: mbp-intel
+runners:
+  - { name: chile-mono-1, repo: chile-mono, labels: [chile-mono-local, chile-mono-ci] }
+  - { name: chile-mono-2, repo: chile-mono, labels: [chile-mono-local, chile-mono-ci] }
+  - { name: chile-mono-3, repo: chile-mono, labels: [chile-mono-local, chile-mono-ci] }
+  - { name: agent-runtime-trigger, repo: agent-runtime-trigger, labels: [agent-runtime-trigger-local] }
+  - { name: google-ags-management, repo: google-ags-management, labels: [google-ags-management-local] }
+  - { name: order-printer, repo: order-printer, labels: [order-printer-local] }
+  - { name: proving-ground, repo: proving-ground, labels: [proving-ground-local] }

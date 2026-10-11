@@ -5,3 +5,6 @@
   gather_facts: true
   roles:
     - base
+    - role: runners
+      when: "'home_server' in group_names"
+      tags: runners

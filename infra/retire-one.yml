@@ -1,0 +1,37 @@
+- name: Parse
+  ansible.builtin.set_fact:
+    rdir: "{{ rf.item.path | dirname }}"
+    rinfo: "{{ rf.content | b64decode | regex_replace('^\\ufeff', '') | from_json }}"
+
+- name: Label and repo
+  ansible.builtin.set_fact:
+    rrepo: "{{ rinfo.gitHubUrl | regex_replace('^https://github.com/' ~ github_owner ~ '/', '') }}"
+    rlabel: "actions.runner.{{ github_owner }}-{{ rinfo.gitHubUrl | regex_replace('^https://github.com/' ~ github_owner ~ '/', '') }}.{{ rinfo.agentName }}"
+
+- name: "{{ rinfo.agentName }}: unload"
+  ansible.builtin.shell: launchctl bootout gui/{{ ansible_user_uid }}/{{ rlabel }} 2>/dev/null || launchctl bootout user/{{ ansible_user_uid }}/{{ rlabel }} 2>/dev/null || true
+  changed_when: true
+
+- name: "{{ rinfo.agentName }}: removal token (control node, never logged)"
+  ansible.builtin.command: gh api -X POST repos/{{ github_owner }}/{{ rrepo }}/actions/runners/remove-token --jq .token
+  delegate_to: localhost
+  register: rm_token
+  no_log: true
+  changed_when: false
+
+- name: "{{ rinfo.agentName }}: deregister"
+  ansible.builtin.command: ./config.sh remove --token "$RUNNER_TOKEN"
+  args:
+    chdir: "{{ rdir }}"
+  environment:
+    RUNNER_TOKEN: "{{ rm_token.stdout }}"
+  no_log: true
+  failed_when: false
+
+- name: "{{ rinfo.agentName }}: delete plist and directory"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ ansible_env.HOME }}/Library/LaunchAgents/{{ rlabel }}.plist"
+    - "{{ rdir }}"

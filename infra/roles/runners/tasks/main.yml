@@ -1,0 +1,43 @@
+# Same layout svc.sh would create (runsvc.sh, .service, plist in ~/Library/LaunchAgents) so
+# `./svc.sh status|stop|uninstall` keep working, plus Nice/LowPriorityIO so CI yields to services.
+- name: Runner directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ runners_root }}"
+    - "{{ runners_root }}/_pkg"
+
+- name: Runner package (osx-x64, checksum pinned)
+  ansible.builtin.get_url:
+    url: "https://github.com/actions/runner/releases/download/v{{ runner_version }}/actions-runner-osx-x64-{{ runner_version }}.tar.gz"
+    dest: "{{ runners_root }}/_pkg/actions-runner-osx-x64-{{ runner_version }}.tar.gz"
+    checksum: "sha256:{{ runner_sha256 }}"
+    mode: "0644"
+
+- name: Does this user have a GUI session? (LaunchAgents load only there)
+  ansible.builtin.command: launchctl print gui/{{ ansible_user_uid }}
+  register: gui_domain
+  changed_when: false
+  failed_when: false
+
+- name: Each runner
+  ansible.builtin.include_tasks: runner.yml
+  loop: "{{ runners }}"
+  loop_control:
+    loop_var: r
+    label: "{{ r.name }}"
+
+- name: Runners GitHub knows about on this box
+  ansible.builtin.command: >
+    gh api repos/{{ github_owner }}/{{ item }}/actions/runners
+    --jq '.runners[] | select(.name | startswith("{{ runner_name_prefix }}-")) | "\(.name) \(.status)"'
+  delegate_to: localhost
+  loop: "{{ runners | map(attribute='repo') | unique | list }}"
+  register: gh_runners
+  changed_when: false
+
+- name: Show them
+  ansible.builtin.debug:
+    msg: "{{ gh_runners.results | map(attribute='stdout_lines') | flatten }}"
