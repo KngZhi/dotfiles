@@ -1,0 +1,53 @@
+# Docker Desktop for WAHA. Docker's own installer with --accept-license --user installs the
+# privileged helpers and accepts the license, so the first start needs no click in the GUI.
+- name: Installed Docker Desktop version
+  ansible.builtin.command: defaults read /Applications/Docker.app/Contents/Info.plist CFBundleShortVersionString
+  register: docker_have
+  changed_when: false
+  failed_when: false
+  check_mode: false          # read-only; --check must still see the real version
+
+- name: Install Docker Desktop {{ docker_desktop_version }} (prebuilt dmg, checksum and signature checked)
+  when: docker_have.rc != 0 or docker_have.stdout != docker_desktop_version
+  block:
+    - name: Temp dir
+      ansible.builtin.tempfile:
+        state: directory
+      register: docker_tmp
+
+    - name: Download
+      ansible.builtin.get_url:
+        url: "https://desktop.docker.com/mac/main/amd64/{{ docker_desktop_build }}/Docker.dmg"
+        dest: "{{ docker_tmp.path }}/Docker.dmg"
+        checksum: "sha256:{{ docker_desktop_sha256 }}"
+        mode: "0644"
+
+    - name: Mount
+      become: true
+      ansible.builtin.command: hdiutil attach -nobrowse -noverify -mountpoint {{ docker_tmp.path }}/mnt {{ docker_tmp.path }}/Docker.dmg
+
+    - name: Signed by Docker Inc
+      ansible.builtin.command: codesign -dv --verbose=2 {{ docker_tmp.path }}/mnt/Docker.app
+      register: docker_sig
+      changed_when: false
+      failed_when: "'TeamIdentifier=' ~ docker_desktop_team_id not in docker_sig.stderr"
+
+    - name: Install for {{ ansible_user_id }}
+      become: true
+      ansible.builtin.command: "{{ docker_tmp.path }}/mnt/Docker.app/Contents/MacOS/install --accept-license --user={{ ansible_user_id }}"
+
+    - name: Register with LaunchServices (so `open -a Docker` in com.saoko.docker-desktop finds it)
+      ansible.builtin.command: /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f /Applications/Docker.app
+
+  always:
+    - name: Unmount
+      become: true
+      ansible.builtin.command: hdiutil detach {{ docker_tmp.path }}/mnt
+      failed_when: false
+      when: docker_tmp.path is defined
+
+    - name: Clean up
+      ansible.builtin.file:
+        path: "{{ docker_tmp.path }}"
+        state: absent
+      when: docker_tmp.path is defined

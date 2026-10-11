@@ -1,0 +1,31 @@
+# saoko-whatsapp on the home server: Baileys bridge, worker, watchdog, WAHA (in Docker).
+# Moved here from the Air on 2026-10-11. Paths match the Air because the repo's
+# launchd/*.plist hard-code them.
+whatsapp_repo: git@github.com:KngZhi/saoko-whatsapp.git
+whatsapp_checkout: "{{ ansible_env.HOME }}/repo/saoko-whatsapp"                    # bridge runs scripts/run.sh from here
+whatsapp_deploy: "{{ ansible_env.HOME }}/repo/saoko-whatsapp-worktrees/deploy"     # worker, watchdog, probe, deploy.sh
+whatsapp_env_file: "{{ ansible_env.HOME }}/.config/saoko-whatsapp/env"
+whatsapp_session_dir: "{{ ansible_env.HOME }}/.hermes/platforms/whatsapp/session"   # run.sh default; the one linked device
+
+# The scripts default to /opt/homebrew/bin/{node,python3}; here that is the old Homebrew
+# node 20 and python 3.11, so the env file points them at mise's runtimes instead.
+whatsapp_node_bin: "{{ ansible_env.HOME }}/.local/share/mise/installs/node/{{ mise_tools.node }}/bin/node"
+whatsapp_python_bin: "{{ ansible_env.HOME }}/.local/share/mise/installs/python/3.12/bin/python3"
+whatsapp_uv_bin: "{{ ansible_env.HOME }}/.local/share/mise/shims/uv"
+
+# waha/compose.yaml pins the arm64-only tag; WAHA tags are single-arch, so the Intel runs
+# the amd64 build of the same release through ~/.config/waha/compose.override.yaml.
+waha_image: devlikeapro/waha:gows-2026.9.2
+
+whatsapp_plists:
+  - com.saoko.docker-desktop
+  - com.saoko.whatsapp-bridge
+  - com.saoko.whatsapp-worker
+  - com.saoko.whatsapp-watchdog
+  - com.saoko.waha-probe
+
+# Docker Desktop for Intel, prebuilt dmg from Docker's appcast, installed unattended.
+docker_desktop_version: "4.94.0"
+docker_desktop_build: "241994"
+docker_desktop_sha256: 44a9c8524c6f5cc6ba51cec7fd6343b2a744ff4cb5126f7d3d5b6f4da06fd905
+docker_desktop_team_id: 9BNSXJN65R     # Docker Inc Developer ID

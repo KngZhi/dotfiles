@@ -1,7 +1,7 @@
-description: 每 5 分钟探一次：Air 在 Tailscale 上可达、K2046 MCP（Fly）有响应；某一项挂了或恢复时推一次 Telegram
+description: 每 5 分钟探一次：Air 在 Tailscale 上可达、K2046 MCP（Fly）有响应、本机 WhatsApp bridge 已连接；某一项挂了或恢复时推一次 Telegram
 schedule: "*/5 * * * *"
 hist_retention_days: 14
-# 两项互不依赖，并行跑：一项挂了不挡另一项。各自经 dagu-probe（roles/dagu/files）执行，
+# 各项互不依赖，并行跑：一项挂了不挡另一项。各自经 dagu-probe（roles/dagu/files）执行，
 # 结果变化才推 Telegram，持续故障不重复推。
 steps:
   - name: air-reachable
@@ -12,4 +12,12 @@ steps:
       code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://mcp.saokos.cl/health)
       echo "http $code"
       case "$code" in 200|401) exit 0;; *) echo "unexpected status" >&2; exit 1;; esac
+      '
+  # bridge 自 2026-10-11 跑在本机（roles/whatsapp）。只读 /health，绝不碰 /messages（会取走队列）。
+  - name: whatsapp-bridge-connected
+    run: |
+      exec $HOME/.local/bin/dagu-probe whatsapp-bridge-connected /bin/sh -c '
+      body=$(curl -fsS --max-time 5 http://127.0.0.1:3000/health) || exit 1
+      echo "$body" | grep -o "\"status\":\"[a-z_-]*\""
+      echo "$body" | grep -q "\"status\":\"connected\""
       '

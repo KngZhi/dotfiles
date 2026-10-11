@@ -1,0 +1,105 @@
+# saoko-whatsapp on the home server. Prepares code, runtimes, Docker and launchd files, and
+# never starts the bridge or WAHA: there is one WhatsApp session, and it must never run on two
+# machines at once. Cutover (stop the old machine, copy config, state and the session, then
+# bootstrap the plists in the order bridge, worker, watchdog, waha-probe) is done by hand.
+
+- name: Docker Desktop
+  ansible.builtin.import_tasks: docker-desktop.yml
+
+- name: Private config and state directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0700"
+  loop:
+    - "{{ ansible_env.HOME }}/.config/saoko-whatsapp"
+    - "{{ ansible_env.HOME }}/.config/waha"
+    - "{{ ansible_env.HOME }}/.local/state/saoko-whatsapp"
+    - "{{ ansible_env.HOME }}/.local/state/waha"
+    - "{{ ansible_env.HOME }}/.local/state/waha/sessions"
+    - "{{ ansible_env.HOME }}/.hermes"
+
+- name: Parent of the bridge session directory
+  ansible.builtin.file:
+    path: "{{ whatsapp_session_dir | dirname }}"
+    state: directory
+
+- name: Main checkout (cloned once; scripts/deploy.sh moves it, not Ansible)
+  ansible.builtin.git:
+    repo: "{{ whatsapp_repo }}"
+    dest: "{{ whatsapp_checkout }}"
+    version: main
+    update: false
+
+- name: Deploy worktree (detached at origin/main, as on the Air)
+  ansible.builtin.command: git -C {{ whatsapp_checkout }} worktree add --detach {{ whatsapp_deploy }} origin/main
+  args:
+    creates: "{{ whatsapp_deploy }}/.git"
+
+- name: Bridge dependencies (npm ci with mise's node)
+  ansible.builtin.command: "{{ whatsapp_node_bin | dirname }}/npm ci --no-audit --no-fund"
+  args:
+    chdir: "{{ item }}/bridge"
+    creates: "{{ item }}/bridge/node_modules"
+  environment:
+    PATH: "{{ whatsapp_node_bin | dirname }}:/usr/bin:/bin:/usr/sbin:/sbin"
+  loop:
+    - "{{ whatsapp_checkout }}"
+    - "{{ whatsapp_deploy }}"
+
+- name: Worker venv (python 3.12 from mise)
+  ansible.builtin.command: "{{ whatsapp_uv_bin }} venv .venv --python {{ whatsapp_python_bin }}"
+  args:
+    chdir: "{{ whatsapp_deploy }}/worker"
+    creates: "{{ whatsapp_deploy }}/worker/.venv/bin/python"
+  register: worker_venv
+
+- name: Worker package into the venv (same command scripts/deploy.sh uses)
+  ansible.builtin.command: "{{ whatsapp_uv_bin }} pip install --python .venv/bin/python -e ."
+  args:
+    chdir: "{{ whatsapp_deploy }}/worker"
+  when: worker_venv is changed
+
+# The env file holds the production secrets and is copied from the old machine at cutover;
+# this role never creates it, it only adds the two runtime paths that differ on this box.
+- name: Env file present?
+  ansible.builtin.stat:
+    path: "{{ whatsapp_env_file }}"
+  register: whatsapp_env
+
+- name: Env file points node and the watchdog's python at mise
+  ansible.builtin.lineinfile:
+    path: "{{ whatsapp_env_file }}"
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+  loop:
+    - { key: SAOKO_NODE_BIN, value: "{{ whatsapp_node_bin }}" }
+    - { key: SAOKO_WATCHDOG_PYTHON_BIN, value: "{{ whatsapp_python_bin }}" }
+  when: whatsapp_env.stat.exists
+
+- name: WAHA amd64 image override
+  ansible.builtin.template:
+    src: compose.override.yaml.j2
+    dest: "{{ ansible_env.HOME }}/.config/waha/compose.override.yaml"
+    mode: "0600"
+
+# Installed plists load at the next login, so they go in only once the session data is on
+# this machine; before that the bridge would start against an empty session and ask for a QR.
+- name: Session data present?
+  ansible.builtin.stat:
+    path: "{{ whatsapp_session_dir }}/creds.json"
+  register: whatsapp_creds
+
+- name: LaunchAgent plists from the repo's launchd/ (paths unchanged; not bootstrapped here)
+  ansible.builtin.copy:
+    src: "{{ whatsapp_deploy }}/launchd/{{ item }}.plist"
+    dest: "{{ ansible_env.HOME }}/Library/LaunchAgents/{{ item }}.plist"
+    mode: "0644"
+    remote_src: true
+  loop: "{{ whatsapp_plists }}"
+  when: whatsapp_creds.stat.exists
+
+- name: Session data missing
+  ansible.builtin.debug:
+    msg: "No {{ whatsapp_session_dir }}/creds.json: plists not installed. Copy config, state and the session from the running machine first (single session)."
+  when: not whatsapp_creds.stat.exists
