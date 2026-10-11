@@ -1,7 +1,8 @@
-# A server must not sleep. Autologin for the GUI session is set by hand once
-# (sysadminctl needs the account password): see infra/README.md.
-- name: Never sleep on AC, wake on LAN, restart after power loss
+# A server must not sleep, on AC or battery, lid open or closed (2026-10-11 the Intel slept on
+# battery after 60 idle minutes and dropped off the network). Autologin for the GUI session is set
+# by hand once (sysadminctl/kcpassword need the account password): see infra/README.md.
+- name: Never sleep (any power source), wake on LAN, restart after power loss
   become: true
-  ansible.builtin.command: pmset -c sleep 0 disksleep 0 displaysleep 15 womp 1 autorestart 1
+  ansible.builtin.command: pmset -a sleep 0 disablesleep 1 disksleep 0 displaysleep 15 womp 1 autorestart 1
   changed_when: true
   tags: sudo
