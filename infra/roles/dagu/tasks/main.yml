@@ -63,21 +63,16 @@
     mode: "0644"
   notify: restart dagu
 
-- name: Stray foreground dagu from the trial?
-  ansible.builtin.shell: pgrep -f "dagu start-all" | grep -v "^$(launchctl print gui/{{ ansible_user_uid }}/com.dagu.server 2>/dev/null | awk '/pid =/{print $3}')$" || true
-  register: stray
-  changed_when: false
-
-- name: Stop stray dagu
-  ansible.builtin.command: kill {{ stray.stdout_lines | join(' ') }}
-  when: stray.stdout_lines | length > 0
-  notify: restart dagu
-
 - name: Loaded in the GUI session?
   ansible.builtin.command: launchctl print gui/{{ ansible_user_uid }}/com.dagu.server
   register: dagu_loaded
   changed_when: false
   failed_when: false
+
+- name: Stop any dagu that launchd does not own (left from the trial)
+  ansible.builtin.shell: pkill -f "dagu start-all" || true
+  when: dagu_loaded.rc != 0
+  changed_when: false
 
 - name: Load
   ansible.builtin.command: launchctl bootstrap gui/{{ ansible_user_uid }} {{ ansible_env.HOME }}/Library/LaunchAgents/com.dagu.server.plist

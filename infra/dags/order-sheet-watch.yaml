@@ -9,7 +9,7 @@ steps:
   - name: pull-chile-ops
     command: git -C $HOME/repo/chile-ops pull -q --ff-only
   - name: run
-    dir: $HOME/repo/chile-ops
+    working_dir: $HOME/repo/chile-ops
     script: |
       set -euo pipefail
       export OP_SERVICE_ACCOUNT_TOKEN="$(security find-generic-password -s op-service-account -w)"
