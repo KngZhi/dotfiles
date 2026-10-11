@@ -15,10 +15,10 @@ services:
     repo: https://github.com/KngZhi/order-printer
     root: "{{ ansible_env.HOME }}/services/order-printer-local-server"
     plists: [com.order-printer.local-server, com.order-printer.local-server-heartbeat, com.order-printer.local-server-autodeploy]
-    needs_gui: true          # Scotiabank headed Chrome
-    health: "http://127.0.0.1:3001/health"
-    after_move: "fly secrets set BANK_SERVICE_URL/FACTURA_SERVICE_URL=http://<intel tailscale ip>:3001 -a order-printer"
-    note: "moving 2026-10-11 (first of the remaining services); the repo/service is to be renamed afterwards (name no longer fits)"
+    needs_gui: true          # Scotiabank headed Chrome, Santander puppeteer Chrome (both the system Google Chrome)
+    health: "http://100.122.236.59:3001/health (bearer LOCAL_SERVER_API_KEY; binds the Tailscale IP, not 127.0.0.1; Dagu step order-printer-local-server-health)"
+    moved: "2026-10-11 19:28 (roles/order-printer); Fly BANK_SERVICE_URL and FACTURA_SERVICE_URL -> http://100.122.236.59:3001; saoko-whatsapp worker ORDER_PRINTER_SERVICE_URL too. Air plists parked in ~/Library/LaunchAgents.disabled-20261011, Air data kept for rollback"
+    note: "the repo/service is to be renamed afterwards (name no longer fits)"
   - name: hermes
     root: "{{ ansible_env.HOME }}/.hermes"
     plists: [ai.hermes.gateway, ai.hermes.gateway-watchdog]

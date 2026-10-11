@@ -1,4 +1,4 @@
-description: 每 5 分钟探一次：Air 在 Tailscale 上可达、K2046 MCP（Fly）有响应、本机 WhatsApp bridge 已连接；某一项挂了或恢复时推一次 Telegram
+description: 每 5 分钟探一次：Air 在 Tailscale 上可达、K2046 MCP（Fly）有响应、本机 WhatsApp bridge 已连接、本机 order-printer local-server 健康；某一项挂了或恢复时推一次 Telegram
 schedule: "*/5 * * * *"
 hist_retention_days: 14
 # 各项互不依赖，并行跑：一项挂了不挡另一项。各自经 dagu-probe（roles/dagu/files）执行，
@@ -20,4 +20,17 @@ steps:
       body=$(curl -fsS --max-time 5 http://127.0.0.1:3000/health) || exit 1
       echo "$body" | grep -o "\"status\":\"[a-z_-]*\""
       echo "$body" | grep -q "\"status\":\"connected\""
+      '
+  # order-printer local-server 自 2026-10-11 跑在本机（roles/order-printer），Fly 的 BANK/FACTURA_SERVICE_URL
+  # 经 Tailscale 指向它。/health 要 bearer key：步骤里从 shared/.env 读出，只用于请求头，不进日志。
+  - name: order-printer-local-server-health
+    run: |
+      exec $HOME/.local/bin/dagu-probe order-printer-local-server-health /bin/sh -c '
+      env=$HOME/services/order-printer-local-server/shared/.env
+      key=$(sed -n "s/^LOCAL_SERVER_API_KEY=//p" "$env" | sed "s/^\"//;s/\"\$//")
+      host=$(sed -n "s/^LOCAL_SERVER_HOST=//p" "$env")
+      port=$(sed -n "s/^LOCAL_SERVER_PORT=//p" "$env")
+      body=$(curl -fsS --max-time 10 -H "Authorization: Bearer $key" "http://$host:$port/health") || exit 1
+      echo "$body" | grep -o "\"status\":\"[a-z]*\"\|\"commit\":\"[0-9a-f]*\""
+      echo "$body" | grep -q "\"status\":\"ok\""
       '

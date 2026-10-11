@@ -1,0 +1,103 @@
+# order-printer local-server on the home server. Prepares node, directories, the env's host
+# binding and the launchd files, and never starts the service: Fly's BANK_SERVICE_URL and
+# FACTURA_SERVICE_URL name one machine, and the SII keep-warm should not run on two at once.
+# Cutover (copy shared/.env, google-sa.json and both Chrome profiles from the running machine,
+# new read-only deploy key, deploy.sh --build-only, flip current, bootstrap the plists, then
+# `fly secrets set` both URLs in one command and boot out the old machine) is done by hand;
+# the repo's docs/local-server-autodeploy.md has the release mechanics.
+
+- name: Node {{ order_printer_node_major }} via mise (installed beside the global default, config untouched)
+  ansible.builtin.command: "{{ local_bin }}/mise install node@{{ order_printer_node_major }}"
+  args:
+    creates: "{{ order_printer_node_root }}/bin/node"
+
+- name: ~/.local/bin/{node,npm,npx} for the fixed-PATH jump scripts
+  ansible.builtin.file:
+    src: "{{ item.value }}"
+    dest: "{{ local_bin }}/{{ item.key }}"
+    state: link
+    force: true
+  loop: "{{ order_printer_node_links | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Service tree (private where secrets and bank state live)
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ order_printer_home }}", mode: "0700" }
+    - { path: "{{ order_printer_home }}/shared", mode: "0700" }
+    - { path: "{{ order_printer_home }}/state", mode: "0700" }
+    - { path: "{{ order_printer_home }}/releases", mode: "0755" }
+    - { path: "{{ order_printer_home }}/bin", mode: "0755" }
+    - { path: "{{ order_printer_home }}/logs", mode: "0755" }
+    - { path: "{{ ansible_env.HOME }}/.hermes", mode: "0700" }
+    - { path: "{{ order_printer_santander_profile | dirname }}", mode: "0700" }
+
+- name: Google Chrome installed? (both banks drive the system Chrome)
+  ansible.builtin.stat:
+    path: "{{ order_printer_chrome_app }}"
+  register: order_printer_chrome
+
+- name: Google Chrome missing
+  ansible.builtin.fail:
+    msg: "{{ order_printer_chrome_app }} is missing; install Google's stable dmg (not Homebrew) before the cutover."
+  when: not order_printer_chrome.stat.exists
+
+- name: Read-only deploy key present?
+  ansible.builtin.stat:
+    path: "{{ order_printer_home }}/shared/deploy_key"
+  register: order_printer_key
+
+- name: Deploy key missing
+  ansible.builtin.debug:
+    msg: >-
+      No shared/deploy_key: generate a per-machine ed25519 key there and register it with
+      `gh repo deploy-key add <key>.pub --repo KngZhi/order-printer --title "<host> order-printer local-server (read-only)"`.
+  when: not order_printer_key.stat.exists
+
+# The env file holds the production secrets and is copied from the old machine at cutover;
+# this role never creates it, it only pins the one value that differs per machine.
+- name: Env file present?
+  ansible.builtin.stat:
+    path: "{{ order_printer_home }}/shared/.env"
+  register: order_printer_env
+
+- name: Env file binds this machine's Tailscale address
+  ansible.builtin.lineinfile:
+    path: "{{ order_printer_home }}/shared/.env"
+    regexp: "^LOCAL_SERVER_HOST="
+    line: "LOCAL_SERVER_HOST={{ ansible_host }}"
+    mode: "0600"
+  diff: false            # a diff would print the whole secrets file
+  when: order_printer_env.stat.exists
+
+- name: Current release present?
+  ansible.builtin.stat:
+    path: "{{ order_printer_home }}/current/deploy"
+  register: order_printer_current
+
+- name: Jump scripts from the current release (bootstrap.sh copies the same files)
+  ansible.builtin.copy:
+    src: "{{ order_printer_home }}/current/scripts/local-server/bin-templates/"
+    dest: "{{ order_printer_home }}/bin/"
+    mode: "0755"
+    remote_src: true
+  when: order_printer_current.stat.exists
+
+# Installed plists load at the next login, so they go in only once the env and a release are here.
+- name: LaunchAgent plists from the current release's deploy/ (not bootstrapped here)
+  ansible.builtin.copy:
+    src: "{{ order_printer_home }}/current/deploy/{{ item }}.plist"
+    dest: "{{ ansible_env.HOME }}/Library/LaunchAgents/{{ item }}.plist"
+    mode: "0644"
+    remote_src: true
+  loop: "{{ order_printer_plists }}"
+  when: order_printer_env.stat.exists and order_printer_current.stat.exists
+
+- name: Not ready for launchd yet
+  ansible.builtin.debug:
+    msg: "shared/.env or current/ missing: plists not installed. Copy the env from the running machine and build a release first."
+  when: not (order_printer_env.stat.exists and order_printer_current.stat.exists)

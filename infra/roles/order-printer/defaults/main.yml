@@ -1,0 +1,30 @@
+# order-printer local-server on the home server: Scotiabank/Santander queries and SII facturas
+# for the Fly app `order-printer`, reached over Tailscale on <ansible_host>:3001.
+# Moved here from the Air on 2026-10-11. Paths match the Air because the repo's deploy/*.plist
+# and scripts/local-server/lib.sh hard-code /Users/amd/services/order-printer-local-server.
+order_printer_home: "{{ ansible_env.HOME }}/services/order-printer-local-server"
+
+# The jump scripts and lib.sh run with a fixed PATH ($HOME/.local/bin:/opt/homebrew/bin:...).
+# On this box /opt/homebrew/bin is the old Homebrew node 20, so ~/.local/bin/{node,npm,npx}
+# must exist and point at a supported node. 22 = CI (setup-node 22), the Air, and package.json
+# engines (>=22 <25). Login shells, runners and Dagu put mise's shims first, so these links
+# only change what fixed-PATH launchd scripts see.
+order_printer_node_major: "22"
+order_printer_node_root: "{{ ansible_env.HOME }}/.local/share/mise/installs/node/{{ order_printer_node_major }}"
+# mise's bin/npm is a bash wrapper that finds npm relative to $0, so a symlink to it breaks;
+# npm and npx link straight to npm's own CLI entry points (node resolves the real path).
+order_printer_node_links:
+  node: "{{ order_printer_node_root }}/bin/node"
+  npm: "{{ order_printer_node_root }}/lib/node_modules/npm/bin/npm-cli.js"
+  npx: "{{ order_printer_node_root }}/lib/node_modules/npm/bin/npx-cli.js"
+
+# Santander runs puppeteer against this real-Chrome profile (SANTANDER_BROWSER_MODE=local-chrome);
+# Scotiabank uses state/scotiabank-chrome-profile (SCOTIABANK_BROWSER_MODE=headed). Both copied
+# from the running machine at cutover; puppeteer's mock keychain keeps their cookies portable.
+order_printer_santander_profile: "{{ ansible_env.HOME }}/.hermes/order-printer/santander-chrome-profile"
+order_printer_chrome_app: /Applications/Google Chrome.app
+
+order_printer_plists:
+  - com.order-printer.local-server
+  - com.order-printer.local-server-heartbeat
+  - com.order-printer.local-server-autodeploy
