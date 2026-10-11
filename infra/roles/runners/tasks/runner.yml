@@ -14,11 +14,9 @@
     state: directory
     mode: "0755"
 
-- name: "{{ r.name }}: unpack runner"
-  ansible.builtin.unarchive:
-    src: "{{ runners_root }}/_pkg/actions-runner-osx-x64-{{ runner_version }}.tar.gz"
-    dest: "{{ runner_dir }}"
-    remote_src: true
+- name: "{{ r.name }}: unpack runner (bsd tar; the unarchive module wants GNU tar)"
+  ansible.builtin.command:
+    cmd: /usr/bin/tar -xzf "{{ runners_root }}/_pkg/actions-runner-osx-x64-{{ runner_version }}.tar.gz" -C "{{ runner_dir }}"
     creates: "{{ runner_dir }}/config.sh"
   when: not cfg.stat.exists
 
