@@ -1,0 +1,15 @@
+# 迁自 Air 的 launchd com.chile-ops.whatsapp-status-daily（2026-10-11 晚，随 WhatsApp bridge 一起搬到 Intel）。
+# run_daily.sh 先把 ~/repo/chile-ops-worktrees/whatsapp-status-daily 重置到 origin/main（合并即部署），
+# 再跑 daily_status.py --send。它自己会把 deploy 失败和 STOP 推 Telegram，但脚本异常退出不会，
+# 所以保留 base.yaml 的默认失败处理。只看不发请手动跑 whatsapp-status-daily-dry。
+description: 每天 08:30 发 WhatsApp Status 商品拼图（chile-ops skills/whatsapp-status-publish）；bridge 在本机 3000
+schedule: "30 8 * * *"
+hist_retention_days: 30
+max_active_runs: 1
+env:
+  - PATH: /Users/amd/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+  - STATUS_PYTHON_BIN: /Users/amd/.local/share/chile-ops/venvs/whatsapp-status/bin/python3   # uv venv + pillow
+  - STATUS_DESKTOP_NOTIFY: "0"   # 服务器上不弹 macOS 通知
+steps:
+  - name: send
+    run: /Users/amd/repo/chile-ops-worktrees/whatsapp-status-daily/skills/whatsapp-status-publish/scripts/run_daily.sh --send

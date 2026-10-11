@@ -16,6 +16,13 @@ whatsapp_uv_bin: "{{ ansible_env.HOME }}/.local/share/mise/shims/uv"
 # waha/compose.yaml pins the arm64-only tag; WAHA tags are single-arch, so the Intel runs
 # the amd64 build of the same release through ~/.config/waha/compose.override.yaml.
 waha_image: devlikeapro/waha:gows-2026.9.2
+# WAHA keeps its loopback binding; `tailscale serve --tcp 3010` republishes it on the
+# server's Tailscale addresses only (tasks/main.yml), so Claude Code on the Pro reaches
+# the MCP at http://<ansible_host>:3010/mcp. Every request still needs an X-Api-Key.
+# serve, not a Docker port on the tailnet IP: it survives Docker restarts and does not
+# fail the container start when Tailscale is still coming up.
+waha_tailscale_bin: /usr/local/bin/tailscale
+waha_tailnet_port: 3010
 
 whatsapp_plists:
   - com.saoko.docker-desktop

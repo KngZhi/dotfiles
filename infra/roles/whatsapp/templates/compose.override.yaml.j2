@@ -2,6 +2,8 @@
 # arm64-only tag; this Intel server runs the amd64 build of the same WAHA release.
 # Start WAHA with both files:
 #   docker compose -f {{ whatsapp_deploy }}/waha/compose.yaml -f {{ ansible_env.HOME }}/.config/waha/compose.override.yaml up -d
+# The port stays bound to 127.0.0.1 as in the repo file; the tailnet reaches it through
+# tailscale serve (tasks/main.yml), not through a second Docker port binding.
 services:
   waha:
     image: {{ waha_image }}

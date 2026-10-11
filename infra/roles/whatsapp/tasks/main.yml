@@ -83,6 +83,18 @@
     dest: "{{ ansible_env.HOME }}/.config/waha/compose.override.yaml"
     mode: "0600"
 
+- name: WAHA published to the tailnet? (tailscale serve status)
+  ansible.builtin.command: "{{ waha_tailscale_bin }} serve status"
+  register: waha_serve
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Publish WAHA on the tailnet (tailscale serve, tcp {{ waha_tailnet_port }} -> localhost:3010; persists in tailscaled state)
+  ansible.builtin.command: "{{ waha_tailscale_bin }} serve --bg --tcp {{ waha_tailnet_port }} tcp://localhost:3010"
+  become: true
+  when: "'tcp://localhost:3010' not in waha_serve.stdout"
+
 # Installed plists load at the next login, so they go in only once the session data is on
 # this machine; before that the bridge would start against an empty session and ask for a QR.
 - name: Session data present?

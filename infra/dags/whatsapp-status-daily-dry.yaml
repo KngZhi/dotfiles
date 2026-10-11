@@ -1,0 +1,12 @@
+# whatsapp-status-daily 的只看版：同一脚本加 --dry-run，拼图写到 state 目录的 dryrun/，不发、不动 cursor。
+# 没有时间表，只在面板上手动跑。
+description: WhatsApp Status 拼图预演：只生成到 dryrun/，不发送、不前移 cursor（手动）
+hist_retention_days: 14
+max_active_runs: 1
+env:
+  - PATH: /Users/amd/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+  - STATUS_PYTHON_BIN: /Users/amd/.local/share/chile-ops/venvs/whatsapp-status/bin/python3
+  - STATUS_DESKTOP_NOTIFY: "0"
+steps:
+  - name: dry-run
+    run: /Users/amd/repo/chile-ops-worktrees/whatsapp-status-daily/skills/whatsapp-status-publish/scripts/run_daily.sh --dry-run
