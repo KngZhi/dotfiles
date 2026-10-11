@@ -13,6 +13,7 @@
     <key>DAGU_HOST</key><string>{{ dagu_bind_host }}</string>
     <key>DAGU_PORT</key><string>{{ dagu_port }}</string>
     <key>DAGU_TZ</key><string>{{ dagu_tz }}</string>
+    <key>DAGU_AUTH_MODE</key><string>none</string>   <!-- tailnet-only bind; the API is used by Ansible and agents -->
     <key>TZ</key><string>{{ dagu_tz }}</string>
     <key>HOME</key><string>{{ ansible_env.HOME }}</string>
     <key>PATH</key><string>{{ ansible_env.HOME }}/.local/share/mise/shims:{{ local_bin }}:{{ brew_prefix }}/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
