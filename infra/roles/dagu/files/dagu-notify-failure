@@ -1,0 +1,51 @@
+#!/bin/bash
+# Default failure handler for every Dagu DAG: base.yaml's handler_on.failure runs
+# this, so a DAG that fails reaches a human without saying so in its own file.
+#
+# Usage: dagu-notify-failure      (as a Dagu handler; it reads DAG_NAME and
+#                                  DAG_RUN_LOG_FILE, which Dagu sets)
+#
+# The message body is what the steps wrote, stderr first. DAG_RUN_LOG_FILE only
+# lists "Step started" lines and does not say which step failed or why; the step
+# logs sit beside it as run_*/<step>.<time>.<id>.err and .out (base.yaml keeps
+# log_output: separate for this).
+#
+# Delivery is chile-mono's ops/cron/notify.sh, like dagu-probe. Dagu hands a
+# handler no step exit code, so 1 stands for "failed".
+
+NOTIFY="${DAGU_NOTIFY:-$HOME/.local/share/chile-mono-cron/ops/cron/notify.sh}"
+TAIL_LINES=6
+
+if [ -z "$DAG_NAME" ] || [ -z "$DAG_RUN_LOG_FILE" ]; then
+  echo "dagu-notify-failure: DAG_NAME and DAG_RUN_LOG_FILE are unset (run it as a Dagu handler)" >&2
+  exit 64
+fi
+
+BODY=$(mktemp)
+trap 'rm -f "$BODY"' EXIT
+
+step_tail() {
+  local name
+  name=$(basename "$1")
+  echo "[${name%%.*}]"
+  tail -n "$TAIL_LINES" "$1"
+}
+
+# A retried run has one run_* directory per attempt; the newest is the one that failed.
+ATTEMPT_DIR=$(ls -dt "$(dirname "$DAG_RUN_LOG_FILE")"/run_*/ 2>/dev/null | head -n 1)
+if [ -n "$ATTEMPT_DIR" ]; then
+  for f in "$ATTEMPT_DIR"*.err; do
+    [ -s "$f" ] && step_tail "$f"
+  done > "$BODY"
+
+  # A step that explains itself on stdout only: fall back to the last one that spoke.
+  if [ ! -s "$BODY" ]; then
+    ls -t "$ATTEMPT_DIR"*.out 2>/dev/null | while read -r f; do
+      [ -s "$f" ] || continue
+      step_tail "$f"
+      break
+    done > "$BODY"
+  fi
+fi
+
+"$NOTIFY" "$DAG_NAME" 1 "$BODY"

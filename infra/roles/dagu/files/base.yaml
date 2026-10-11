@@ -1,0 +1,21 @@
+# Managed by dotfiles/infra (roles/dagu). Every DAG inherits these and a DAG file can
+# override any of them. Dagu reloads this file on its own; no restart.
+
+# Any DAG that fails pushes Telegram through dagu-notify-failure, so a new DAG is
+# covered without mentioning notification at all. A DAG whose steps already push on
+# failure (chile-* through chile-mono's run.sh, health-checks through dagu-probe)
+# replaces this with its own no-op failure handler, or one failure pushes twice.
+# Only a handler of its own replaces it: `failure: null` and `handler_on: {}` do not.
+handler_on:
+  failure:
+    run: $HOME/.local/bin/dagu-notify-failure
+
+# The rest are the values Dagu 2.19 wrote when it first created this file.
+type: graph                 # steps run in parallel unless they declare depends
+overlap_policy: skip        # a run that would overlap an active one is dropped
+log_output: separate        # stdout to .out, stderr to .err; dagu-notify-failure reads them
+hist_retention_days: 30
+max_clean_up_time_sec: 5
+max_active_steps: 10
+max_output_size: 1048576    # bytes captured per step
+catchup_window: "6h"        # after downtime, replay the scheduled runs missed in this window

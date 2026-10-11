@@ -11,6 +11,10 @@ max_active_runs: 1
 env:
   - SHELL: /bin/bash
   - PATH: /Users/amd/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+# run.sh 失败时已经推过 Telegram；用空操作换掉 base.yaml 的默认失败处理，免得同一次失败推两条。
+handler_on:
+  failure:
+    run: "true"
 steps:
   - name: pull
     working_dir: /Users/amd

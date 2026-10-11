@@ -42,11 +42,20 @@
         path: "{{ dagu_tmp.path }}"
         state: absent
 
-- name: Probe wrapper for health-check steps (Telegram only when a result changes)
+- name: Notification helpers (dagu-probe wraps health-check steps; dagu-notify-failure is base.yaml's handler)
   ansible.builtin.copy:
-    src: dagu-probe
-    dest: "{{ local_bin }}/dagu-probe"
+    src: "{{ item }}"
+    dest: "{{ local_bin }}/{{ item }}"
     mode: "0755"
+  loop:
+    - dagu-probe
+    - dagu-notify-failure
+
+- name: Base config (defaults every DAG inherits, including the failure handler)
+  ansible.builtin.copy:
+    src: base.yaml
+    dest: "{{ ansible_env.HOME }}/.config/dagu/base.yaml"
+    mode: "0644"
 
 - name: DAG files (infra/dags -> ~/.config/dagu/dags)
   ansible.builtin.copy:
