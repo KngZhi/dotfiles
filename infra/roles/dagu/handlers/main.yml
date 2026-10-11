@@ -1,0 +1,2 @@
+- name: restart dagu
+  ansible.builtin.shell: launchctl kickstart -k gui/{{ ansible_user_uid }}/com.dagu.server 2>/dev/null || true

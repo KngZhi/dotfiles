@@ -8,3 +8,6 @@
     - role: runners
       when: "'home_server' in group_names"
       tags: runners
+    - role: dagu
+      when: "'home_server' in group_names"
+      tags: dagu

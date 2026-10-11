@@ -62,3 +62,11 @@ runners:
   - { name: google-ags-management, repo: google-ags-management, labels: [google-ags-management-local] }
   - { name: order-printer, repo: order-printer, labels: [order-printer-local] }
   - { name: proving-ground, repo: proving-ground, labels: [proving-ground-local] }
+
+# Dagu: the one panel for scheduled jobs, health checks and manual operations (chosen 2026-10-11
+# over Cronicle). DAG files live in infra/dags and are copied to ~/.config/dagu/dags.
+dagu_version: "2.19.0"
+dagu_sha256: d41d88020480493020e0f80b751b706517ade2b9606337017cdd8e954dbe0b7d
+dagu_bind_host: 100.122.236.59        # Tailscale address: reachable from the tailnet only
+dagu_port: 8080
+dagu_tz: America/Santiago

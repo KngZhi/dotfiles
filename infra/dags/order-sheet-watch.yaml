@@ -1,0 +1,19 @@
+name: order-sheet-watch
+description: 工厂订单表每日盯表（chile-ops skills/post-order-follow-up）：有变化才写 Linear SAOKO。APPLY 留空即只打印不写。
+schedule: "57 8 * * *"
+histRetentionDays: 60
+maxActiveRuns: 1
+params:
+  - APPLY: "--apply"
+steps:
+  - name: pull-chile-ops
+    command: git -C $HOME/repo/chile-ops pull -q --ff-only
+  - name: run
+    dir: $HOME/repo/chile-ops
+    script: |
+      set -euo pipefail
+      export OP_SERVICE_ACCOUNT_TOKEN="$(security find-generic-password -s op-service-account -w)"
+      export LINEAR_API_KEY="$(op read 'op://DEV/Linear Cli SAOKO/credential')"
+      python3 skills/post-order-follow-up/scripts/order_watch_run.py \
+        --config skills/post-order-follow-up/order_watch.json \
+        --state-root "$HOME/.local/state/chile-ops/order-sheet-watch" ${APPLY}

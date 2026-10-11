@@ -1,0 +1,90 @@
+- name: Dagu directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ ansible_env.HOME }}/.config/dagu/dags"
+    - "{{ ansible_env.HOME }}/Library/Logs/dagu"
+    - "{{ local_bin }}"
+
+- name: Installed dagu version
+  ansible.builtin.command: "{{ local_bin }}/dagu version"
+  register: dagu_have
+  changed_when: false
+  failed_when: false
+
+- name: Fetch and install the dagu binary (prebuilt darwin/amd64, checksum pinned)
+  when: dagu_have.rc != 0 or dagu_version not in dagu_have.stdout
+  block:
+    - name: Temp dir
+      ansible.builtin.tempfile:
+        state: directory
+      register: dagu_tmp
+    - name: Download
+      ansible.builtin.get_url:
+        url: "https://github.com/dagu-org/dagu/releases/download/v{{ dagu_version }}/dagu_{{ dagu_version }}_darwin_amd64.tar.gz"
+        dest: "{{ dagu_tmp.path }}/dagu.tgz"
+        checksum: "sha256:{{ dagu_sha256 }}"
+        mode: "0644"
+    - name: Unpack
+      ansible.builtin.command:
+        cmd: /usr/bin/tar -xzf {{ dagu_tmp.path }}/dagu.tgz -C {{ dagu_tmp.path }} dagu
+    - name: Install
+      ansible.builtin.copy:
+        src: "{{ dagu_tmp.path }}/dagu"
+        dest: "{{ local_bin }}/dagu"
+        mode: "0755"
+        remote_src: true
+      notify: restart dagu
+    - name: Clean up
+      ansible.builtin.file:
+        path: "{{ dagu_tmp.path }}"
+        state: absent
+
+- name: DAG files (infra/dags -> ~/.config/dagu/dags)
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ ansible_env.HOME }}/.config/dagu/dags/{{ item | basename }}"
+    mode: "0644"
+  with_fileglob: "{{ playbook_dir }}/dags/*.yaml"
+
+- name: LaunchAgent plist
+  ansible.builtin.template:
+    src: com.dagu.server.plist.j2
+    dest: "{{ ansible_env.HOME }}/Library/LaunchAgents/com.dagu.server.plist"
+    mode: "0644"
+  notify: restart dagu
+
+- name: Stray foreground dagu from the trial?
+  ansible.builtin.shell: pgrep -f "dagu start-all" | grep -v "^$(launchctl print gui/{{ ansible_user_uid }}/com.dagu.server 2>/dev/null | awk '/pid =/{print $3}')$" || true
+  register: stray
+  changed_when: false
+
+- name: Stop stray dagu
+  ansible.builtin.command: kill {{ stray.stdout_lines | join(' ') }}
+  when: stray.stdout_lines | length > 0
+  notify: restart dagu
+
+- name: Loaded in the GUI session?
+  ansible.builtin.command: launchctl print gui/{{ ansible_user_uid }}/com.dagu.server
+  register: dagu_loaded
+  changed_when: false
+  failed_when: false
+
+- name: Load
+  ansible.builtin.command: launchctl bootstrap gui/{{ ansible_user_uid }} {{ ansible_env.HOME }}/Library/LaunchAgents/com.dagu.server.plist
+  when: dagu_loaded.rc != 0
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Web UI answers
+  ansible.builtin.uri:
+    url: "http://{{ dagu_bind_host }}:{{ dagu_port }}/"
+    status_code: 200
+  register: ui
+  retries: 10
+  delay: 2
+  until: ui.status == 200
+  delegate_to: localhost

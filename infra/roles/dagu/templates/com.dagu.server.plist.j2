@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.dagu.server</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>{{ local_bin }}/dagu</string>
+    <string>start-all</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>DAGU_HOST</key><string>{{ dagu_bind_host }}</string>
+    <key>DAGU_PORT</key><string>{{ dagu_port }}</string>
+    <key>DAGU_TZ</key><string>{{ dagu_tz }}</string>
+    <key>TZ</key><string>{{ dagu_tz }}</string>
+    <key>HOME</key><string>{{ ansible_env.HOME }}</string>
+    <key>PATH</key><string>{{ ansible_env.HOME }}/.local/share/mise/shims:{{ local_bin }}:{{ brew_prefix }}/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>10</integer>
+  <key>StandardOutPath</key><string>{{ ansible_env.HOME }}/Library/Logs/dagu/server.log</string>
+  <key>StandardErrorPath</key><string>{{ ansible_env.HOME }}/Library/Logs/dagu/server.err.log</string>
+</dict>
+</plist>

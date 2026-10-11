@@ -1,0 +1,12 @@
+name: health-checks
+description: 每 5 分钟探一次：Air 在 Tailscale 上可达、K2046 MCP（Fly）有响应
+schedule: "*/5 * * * *"
+histRetentionDays: 14
+steps:
+  - name: air-reachable
+    command: /usr/local/bin/tailscale ping --c 2 --timeout 5s 100.70.111.73
+  - name: k2046-mcp-responds
+    script: |
+      code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://mcp.saokos.cl/health)
+      echo "http $code"
+      case "$code" in 200|401) exit 0;; *) echo "unexpected status" >&2; exit 1;; esac

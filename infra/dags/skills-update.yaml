@@ -1,0 +1,7 @@
+name: skills-update
+description: dotfiles 技能库每天更新一次（Air 上 com.dotfiles.skills-update 跑的同一个脚本）
+schedule: "0 6 * * *"
+histRetentionDays: 30
+steps:
+  - name: build-update
+    command: /bin/zsh -lc "$HOME/repo/dotfiles/shared/build.sh --update"
