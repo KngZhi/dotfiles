@@ -83,6 +83,7 @@
   ansible.builtin.uri:
     url: "http://{{ dagu_bind_host }}:{{ dagu_port }}/"
     status_code: 200
+    use_netrc: false           # the control node's ~/.netrc is not for this
   register: ui
   retries: 10
   delay: 2
