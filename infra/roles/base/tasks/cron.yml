@@ -1,0 +1,27 @@
+# Dagu is the only scheduler on the server. chile-mono's deploy.py always ends with
+# `install.py --apply`, which writes the repo crontab on whichever machine runs the
+# deploy workflow (the Intel's self-hosted runners, since 2026-10-11). With the cron
+# daemon disabled that crontab stays inert, so a chile-mono job never runs twice
+# (once from cron, once from its chile-* DAG). Undo: launchctl enable + bootstrap.
+- name: launchd overrides for system services
+  become: true
+  ansible.builtin.command: launchctl print-disabled system
+  register: launchd_disabled
+  changed_when: false
+
+- name: Disable the cron daemon (persists across reboots)
+  become: true
+  ansible.builtin.command: launchctl disable system/com.vix.cron
+  when: '''"com.vix.cron" => disabled'' not in launchd_disabled.stdout'
+
+- name: Is cron still loaded?
+  become: true
+  ansible.builtin.command: launchctl print system/com.vix.cron
+  register: cron_loaded
+  changed_when: false
+  failed_when: false
+
+- name: Unload cron (a loaded job can still start on demand when a crontab appears)
+  become: true
+  ansible.builtin.command: launchctl bootout system/com.vix.cron
+  when: cron_loaded.rc == 0

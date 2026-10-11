@@ -4,6 +4,7 @@
 manage_runtimes: true
 manage_tailscale: true
 tailscale_version: v1.104.1
+pnpm_version: "11.9.0"          # chile-mono package.json packageManager
 
 services:
   - name: github-runners

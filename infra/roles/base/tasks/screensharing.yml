@@ -1,0 +1,10 @@
+# macOS Screen Sharing (VNC on 5900) so the operator can reach the server's GUI session over
+# Tailscale from any of the Macs; needed for one-time sign-ins (OneDrive, Google Drive, 1Password).
+- name: Screen Sharing enabled
+  become: true
+  ansible.builtin.shell: |
+    launchctl enable system/com.apple.screensharing
+    launchctl bootstrap system /System/Library/LaunchDaemons/com.apple.screensharing.plist 2>/dev/null || true
+    launchctl print system/com.apple.screensharing >/dev/null
+  changed_when: false
+  tags: sudo

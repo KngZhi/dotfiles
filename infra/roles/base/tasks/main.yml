@@ -39,6 +39,16 @@
   when: manage_runtimes
   tags: mise
 
+- name: pnpm for the chile-mono cron clone (server only)
+  ansible.builtin.import_tasks: pnpm.yml
+  when: "'home_server' in group_names"
+  tags: [mise, pnpm]
+
+- name: Cron daemon off, Dagu schedules (server only)
+  ansible.builtin.import_tasks: cron.yml
+  when: "'home_server' in group_names"
+  tags: [sudo, cron]
+
 - name: Tailscale daemon (open-source tailscaled, no GUI session needed)
   ansible.builtin.import_tasks: tailscale.yml
   when: manage_tailscale
@@ -48,6 +58,11 @@
   ansible.builtin.import_tasks: sudoers.yml
   when: "'home_server' in group_names"
   tags: [sudo, sudoers]
+
+- name: Screen Sharing on the server
+  ansible.builtin.import_tasks: screensharing.yml
+  when: "'home_server' in group_names"
+  tags: [sudo, screensharing]
 
 - name: Server power settings
   ansible.builtin.import_tasks: power.yml

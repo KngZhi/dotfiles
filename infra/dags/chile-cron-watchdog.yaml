@@ -1,0 +1,14 @@
+# 迁自 Air crontab（chile-mono ops/cron/crontab.in 渲染结果）。时间表的唯一来源仍是 crontab.in：
+# 那边改了时间，这里同步改。Intel 上 cron 守护进程已关闭（roles/base/tasks/cron.yml），
+# deploy.py 装进来的 crontab 不会触发，Dagu 是唯一的调度器。不重试：run.sh 失败即推 Telegram。
+description: chile-mono 定时任务看门狗：检查 yollgo-sync、beancount-sync、daily-downloads 最近一次运行，结果经 run.sh --report 推 Telegram
+schedule: "45 7 * * *"
+hist_retention_days: 30
+max_active_runs: 1
+env:
+  - SHELL: /bin/bash
+  - PATH: /Users/amd/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+steps:
+  - name: run
+    working_dir: /Users/amd
+    run: /Users/amd/.local/share/chile-mono-cron/ops/cron/run.sh --report cron-watchdog /Users/amd/.local/share/chile-mono-cron/ops/cron/watchdog.py
