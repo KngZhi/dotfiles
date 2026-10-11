@@ -1,2 +1,5 @@
+# kickstart keeps the old plist environment; a plist change needs bootout + bootstrap.
 - name: restart dagu
-  ansible.builtin.shell: launchctl kickstart -k gui/{{ ansible_user_uid }}/com.dagu.server 2>/dev/null || true
+  ansible.builtin.shell: |
+    launchctl bootout gui/{{ ansible_user_uid }}/com.dagu.server 2>/dev/null || true
+    launchctl bootstrap gui/{{ ansible_user_uid }} "{{ ansible_env.HOME }}/Library/LaunchAgents/com.dagu.server.plist"

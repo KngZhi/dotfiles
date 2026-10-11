@@ -49,6 +49,13 @@
     mode: "0644"
   with_fileglob: "{{ playbook_dir }}/dags/*.yaml"
 
+- name: Server config
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ ansible_env.HOME }}/.config/dagu/config.yaml"
+    mode: "0644"
+  notify: restart dagu
+
 - name: LaunchAgent plist
   ansible.builtin.template:
     src: com.dagu.server.plist.j2

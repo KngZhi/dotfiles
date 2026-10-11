@@ -1,8 +1,8 @@
 name: order-sheet-watch
 description: 工厂订单表每日盯表（chile-ops skills/post-order-follow-up）：有变化才写 Linear SAOKO。APPLY 留空即只打印不写。
 schedule: "57 8 * * *"
-histRetentionDays: 60
-maxActiveRuns: 1
+hist_retention_days: 60
+max_active_runs: 1
 params:
   - APPLY: "--apply"
 steps:

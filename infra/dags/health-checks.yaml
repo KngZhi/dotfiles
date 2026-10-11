@@ -1,7 +1,7 @@
 name: health-checks
 description: 每 5 分钟探一次：Air 在 Tailscale 上可达、K2046 MCP（Fly）有响应
 schedule: "*/5 * * * *"
-histRetentionDays: 14
+hist_retention_days: 14
 steps:
   - name: air-reachable
     command: /usr/local/bin/tailscale ping --c 2 --timeout 5s 100.70.111.73

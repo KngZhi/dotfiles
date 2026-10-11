@@ -1,0 +1,7 @@
+# Managed by dotfiles/infra (roles/dagu). The server binds the Tailscale address only,
+# so builtin auth is off: the tailnet is the perimeter.
+host: "{{ dagu_bind_host }}"
+port: {{ dagu_port }}
+tz: "{{ dagu_tz }}"
+auth:
+  mode: none
