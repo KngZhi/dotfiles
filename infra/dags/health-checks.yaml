@@ -1,13 +1,15 @@
-name: health-checks
-description: 每 5 分钟探一次：Air 在 Tailscale 上可达、K2046 MCP（Fly）有响应
+description: 每 5 分钟探一次：Air 在 Tailscale 上可达、K2046 MCP（Fly）有响应；某一项挂了或恢复时推一次 Telegram
 schedule: "*/5 * * * *"
 hist_retention_days: 14
+# 两项互不依赖，并行跑：一项挂了不挡另一项。各自经 dagu-probe（roles/dagu/files）执行，
+# 结果变化才推 Telegram，持续故障不重复推。
 steps:
   - name: air-reachable
-    command: /usr/local/bin/tailscale ping --c 2 --timeout 5s 100.70.111.73
+    run: $HOME/.local/bin/dagu-probe air-reachable /usr/local/bin/tailscale ping --c 2 --timeout 5s 100.70.111.73
   - name: k2046-mcp-responds
-    depends: air-reachable
-    script: |
+    run: |
+      exec $HOME/.local/bin/dagu-probe k2046-mcp-responds /bin/sh -c '
       code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://mcp.saokos.cl/health)
       echo "http $code"
       case "$code" in 200|401) exit 0;; *) echo "unexpected status" >&2; exit 1;; esac
+      '

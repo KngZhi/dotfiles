@@ -1,0 +1,45 @@
+#!/bin/bash
+# Health probe wrapper for Dagu steps: run one check, and push Telegram only when
+# its result changes (down, then recovered).
+#
+# Usage: dagu-probe <name> <command> [args...]
+#
+# A probe on a 5-minute schedule that pushed every failure would repeat one
+# outage 288 times a day, so each probe keeps a flag in
+# ${XDG_STATE_HOME:-$HOME/.local/state}/dagu-probe/<name>.down. Per probe, not
+# per DAG: a check that stays down must not hide another one going down later.
+#
+# Delivery is chile-mono's ops/cron/notify.sh, the channel the cron jobs already
+# use. It is best-effort and never fails. The exit status is always the
+# command's, so the Dagu step shows the real result.
+
+set -o pipefail
+
+if [ "$#" -lt 2 ]; then
+  echo "usage: $0 <name> <command> [args...]" >&2
+  exit 64
+fi
+
+NAME="$1"
+shift
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/dagu-probe"
+NOTIFY="${PROBE_NOTIFY:-$HOME/.local/share/chile-mono-cron/ops/cron/notify.sh}"
+DOWN_FLAG="$STATE_DIR/$NAME.down"
+LOG_FILE="$STATE_DIR/$NAME.log"
+mkdir -p "$STATE_DIR"
+
+"$@" 2>&1 | tee "$LOG_FILE"
+EXIT_CODE=${PIPESTATUS[0]}
+
+if [ "$EXIT_CODE" -ne 0 ] && [ ! -e "$DOWN_FLAG" ]; then
+  date '+%Y-%m-%d %H:%M %z' > "$DOWN_FLAG"
+  "$NOTIFY" "$NAME" "$EXIT_CODE" "$LOG_FILE" || true
+elif [ "$EXIT_CODE" -eq 0 ] && [ -e "$DOWN_FLAG" ]; then
+  # notify.sh says nothing for a success with an empty log, and a recovery is news.
+  echo "recovered; down since $(cat "$DOWN_FLAG")" | tee -a "$LOG_FILE"
+  rm -f "$DOWN_FLAG"
+  "$NOTIFY" "$NAME" 0 "$LOG_FILE" || true
+fi
+
+exit "$EXIT_CODE"

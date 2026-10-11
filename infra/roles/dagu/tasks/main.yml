@@ -42,6 +42,12 @@
         path: "{{ dagu_tmp.path }}"
         state: absent
 
+- name: Probe wrapper for health-check steps (Telegram only when a result changes)
+  ansible.builtin.copy:
+    src: dagu-probe
+    dest: "{{ local_bin }}/dagu-probe"
+    mode: "0755"
+
 - name: DAG files (infra/dags -> ~/.config/dagu/dags)
   ansible.builtin.copy:
     src: "{{ item }}"
