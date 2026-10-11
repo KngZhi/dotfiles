@@ -44,6 +44,11 @@
   when: manage_tailscale
   tags: tailscale
 
+- name: Passwordless sudo on the server
+  ansible.builtin.import_tasks: sudoers.yml
+  when: "'home_server' in group_names"
+  tags: [sudo, sudoers]
+
 - name: Server power settings
   ansible.builtin.import_tasks: power.yml
   when: "'home_server' in group_names"

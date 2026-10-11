@@ -1,0 +1,12 @@
+# Server role only (2026-10-11, approved by the operator): the agent operating the box over SSH
+# already has the amd account, so passwordless sudo adds no new door and removes every prompt.
+- name: Passwordless sudo for the server account
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/amd-nopasswd
+    content: "amd ALL=(ALL) NOPASSWD: ALL\n"
+    mode: "0440"
+    owner: root
+    group: wheel
+    validate: /usr/sbin/visudo -cf %s
+  tags: sudo
