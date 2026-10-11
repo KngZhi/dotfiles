@@ -1,0 +1,79 @@
+# One Telegram bot for ops alerts. Its token has a single source, 1Password
+# (notify_bot_op_ref in group_vars/home_server.yml); this playbook copies it to every
+# consumer listed there. To change the bot: edit the 1Password item, then
+#   ansible-playbook notify-bot.yml                 home server env files and Dagu's channel
+#   ansible-playbook notify-bot.yml --tags cloud    Fly and GitHub secrets (restarts the Fly apps that are not staged)
+# Only the token is copied. Each consumer keeps its own chat id, and the bot must already
+# be able to post there (a private chat it was started in, or a group it was added to).
+- name: Alert bot token from 1Password to its consumers
+  hosts: mbp-intel
+  gather_facts: true
+  tasks:
+    - name: Read the token on the control node
+      ansible.builtin.set_fact:
+        notify_bot_token: "{{ lookup('ansible.builtin.pipe', 'op read ' ~ (notify_bot_op_ref | quote)) }}"
+      no_log: true
+      tags: always
+
+    - name: Token in the server's env files
+      ansible.builtin.lineinfile:
+        path: "{{ item.path }}"
+        regexp: "^{{ item.key }}="
+        line: "{{ item.key }}={{ notify_bot_token }}"
+        create: false
+      loop: "{{ notify_bot_env_files }}"
+      loop_control:
+        label: "{{ item.path }}"
+      no_log: true
+      diff: false
+
+    - name: Dagu's notification channels
+      ansible.builtin.uri:
+        url: "http://{{ dagu_bind_host }}:{{ dagu_port }}/api/v1/notification-channels"
+        use_netrc: false
+      register: dagu_channels
+      delegate_to: localhost
+
+    # Dagu never returns the stored token, so there is nothing to compare: always written.
+    - name: Token in Dagu's Telegram channel
+      ansible.builtin.uri:
+        url: "http://{{ dagu_bind_host }}:{{ dagu_port }}/api/v1/notification-channels/{{ item.id }}"
+        method: PUT
+        body_format: json
+        body:
+          name: "{{ item.name }}"
+          type: telegram
+          enabled: "{{ item.enabled }}"
+          telegram: >-
+            {{ item.telegram | dict2items | rejectattr('key', 'in', ['botTokenConfigured', 'botTokenPreview'])
+               | items2dict | combine({'botToken': notify_bot_token}) }}
+        use_netrc: false
+      loop: "{{ dagu_channels.json.channels | selectattr('type', 'equalto', 'telegram') }}"
+      loop_control:
+        label: "{{ item.name }}"
+      no_log: true
+      changed_when: false
+      delegate_to: localhost
+
+    # `fly secrets import` reads NAME=VALUE from stdin, so the token stays out of argv.
+    - name: Token in Fly secrets
+      ansible.builtin.command:
+        argv: "{{ ['fly', 'secrets', 'import', '--app', item.app] + (['--stage'] if item.stage | default(false) else []) }}"
+        stdin: "TELEGRAM_BOT_TOKEN={{ notify_bot_token }}"
+      environment:
+        FLY_API_TOKEN: "{{ lookup('ansible.builtin.pipe', 'op read ' ~ (fly_api_token_op_ref | quote)) }}"
+      loop: "{{ notify_bot_fly_apps }}"
+      loop_control:
+        label: "{{ item.app }}"
+      no_log: true
+      delegate_to: localhost
+      tags: [never, cloud]
+
+    - name: Token in GitHub Actions secrets
+      ansible.builtin.command:
+        argv: [gh, secret, set, TELEGRAM_BOT_TOKEN, --repo, "{{ item }}"]
+        stdin: "{{ notify_bot_token }}"
+      loop: "{{ notify_bot_github_repos }}"
+      no_log: true
+      delegate_to: localhost
+      tags: [never, cloud]

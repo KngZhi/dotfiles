@@ -76,3 +76,18 @@ dagu_sha256: d41d88020480493020e0f80b751b706517ade2b9606337017cdd8e954dbe0b7d
 dagu_bind_host: 100.122.236.59        # Tailscale address: reachable from the tailnet only
 dagu_port: 8080
 dagu_tz: America/Santiago
+
+# Alert bot (@saoko_notify_bot): one Telegram bot for ops alerts. 1Password holds the only
+# copy of its token; notify-bot.yml writes it to the consumers below. Each keeps its own
+# chat id. Not here, on purpose: order-printer (its TELEGRAM_BOT_TOKEN is the app's own
+# customer-facing bot) and google-ags-compact-photos (a bot with buttons, to the boss chat).
+notify_bot_op_ref: "op://DEV/Telegram Bot Notify Bot/credential"
+fly_api_token_op_ref: "op://DEV/FLY_API_TOKEN/credential"
+notify_bot_env_files:
+  - { path: "{{ ansible_env.HOME }}/.local/share/chile-mono-cron/.env", key: TELEGRAM_BOT_TOKEN }   # run.sh, dagu-probe
+  - { path: "{{ ansible_env.HOME }}/repo/chile-mono/.env", key: TELEGRAM_BOT_TOKEN }
+notify_bot_fly_apps:
+  - { app: chile-mono-shopify-order-sync }
+  - { app: chile-mono-shopify-k2046-sync, stage: true }   # its Telegram secrets were staged, never deployed; keep it so
+notify_bot_github_repos:
+  - KngZhi/chile-mono        # shopify-sync.yml's failure step
