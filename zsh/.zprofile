@@ -10,3 +10,6 @@ done
 export PATH="$HOME/.local/bin:$PATH"
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
+
+# mise shims (infra/roles/base installs mise on machines that manage runtimes with it)
+[ -d "$HOME/.local/share/mise/shims" ] && export PATH="$HOME/.local/share/mise/shims:$PATH"

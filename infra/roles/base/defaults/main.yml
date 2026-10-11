@@ -1,0 +1,2 @@
+manage_runtimes: false      # terminals/dev keep their Homebrew toolchains for now
+manage_tailscale: false

@@ -1,0 +1,50 @@
+- name: Directories every machine needs
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ local_bin }}"
+    - "{{ ansible_env.HOME }}/.local/state"
+    - "{{ ansible_env.HOME }}/.config/mise"
+    - "{{ ansible_env.HOME }}/Library/LaunchAgents"
+    - "{{ ansible_env.HOME }}/Library/Logs"
+    - "{{ ansible_env.HOME }}/repo"
+
+- name: Dotfiles checkout
+  ansible.builtin.git:
+    repo: "{{ dotfiles_repo }}"
+    dest: "{{ dotfiles_dir }}"
+    version: master
+    update: "{{ 'home_server' in group_names }}"   # servers track master; A/C have local work, leave them
+  tags: dotfiles
+
+- name: Is ~/.zshrc already a dotfiles symlink?
+  ansible.builtin.stat:
+    path: "{{ ansible_env.HOME }}/.zshrc"
+  register: zshrc
+  tags: dotfiles
+
+- name: Run link.sh once on a fresh machine
+  ansible.builtin.command: /bin/zsh -lc "{{ dotfiles_dir }}/link.sh"
+  when: not (zshrc.stat.islnk | default(false))
+  tags: dotfiles
+
+- name: 1Password CLI
+  ansible.builtin.import_tasks: op.yml
+  tags: op
+
+- name: Runtimes via mise
+  ansible.builtin.import_tasks: mise.yml
+  when: manage_runtimes
+  tags: mise
+
+- name: Tailscale daemon (open-source tailscaled, no GUI session needed)
+  ansible.builtin.import_tasks: tailscale.yml
+  when: manage_tailscale
+  tags: tailscale
+
+- name: Server power settings
+  ansible.builtin.import_tasks: power.yml
+  when: "'home_server' in group_names"
+  tags: [sudo, power]

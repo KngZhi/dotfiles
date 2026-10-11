@@ -1,0 +1,40 @@
+# Homebrew would compile Go from source on Intel (Tier 3). Build the two tailscale binaries
+# with the prebuilt go.dev toolchain instead, then install the system daemon (sudo).
+- name: tailscaled binary present?
+  ansible.builtin.stat:
+    path: "{{ local_bin }}/tailscaled"
+  register: tsd
+
+- name: Build tailscale and tailscaled with go install
+  ansible.builtin.command: >
+    {{ go_sdk_dir | default(ansible_env.HOME + '/.local/go-sdk') }}/bin/go install
+    tailscale.com/cmd/tailscale@{{ tailscale_version }} tailscale.com/cmd/tailscaled@{{ tailscale_version }}
+  environment:
+    GOBIN: "{{ local_bin }}"
+    GOFLAGS: -trimpath
+    GOTOOLCHAIN: local
+    PATH: "{{ go_sdk_dir | default(ansible_env.HOME + '/.local/go-sdk') }}/bin:/usr/bin:/bin"
+  when: not tsd.stat.exists
+
+- name: System daemon installed?
+  ansible.builtin.stat:
+    path: /Library/LaunchDaemons/com.tailscale.tailscaled.plist
+  register: tsd_plist
+
+- name: Install tailscaled as a LaunchDaemon and the CLI into /usr/local/bin
+  become: true
+  ansible.builtin.shell: |
+    {{ local_bin }}/tailscaled install-system-daemon
+    install -m 755 {{ local_bin }}/tailscale /usr/local/bin/tailscale
+  when: not tsd_plist.stat.exists
+  tags: sudo
+
+- name: Tailscale status
+  ansible.builtin.command: /usr/local/bin/tailscale status --self --peers=false
+  register: ts_status
+  changed_when: false
+  failed_when: false
+
+- name: Show tailscale status
+  ansible.builtin.debug:
+    msg: "{{ ts_status.stdout_lines | default(['tailscale not up yet: run `sudo tailscale up --operator=amd --hostname=' + inventory_hostname + '`']) }}"

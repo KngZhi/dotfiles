@@ -1,0 +1,24 @@
+# The one list of machines. What each machine runs lives in group_vars/<group>.yml;
+# only addresses, architecture and per-host paths belong here or in host_vars/.
+all:
+  vars:
+    ansible_user: amd
+  children:
+    terminals:            # A: screen and keyboard only, herdr client, per-machine agents
+      hosts:
+        mbair:
+          ansible_host: 100.70.111.73
+          arch: arm64
+          brew_prefix: /opt/homebrew
+    dev:                  # C: Claude Code, Codex, builds; also the Ansible control node
+      hosts:
+        pro:
+          ansible_connection: local
+          arch: arm64
+          brew_prefix: /opt/homebrew
+    home_server:          # B: the launchd services (see group_vars/home_server.yml)
+      hosts:
+        mbp-intel:
+          ansible_host: mbp-intel          # Tailscale MagicDNS; 100.122.236.59
+          arch: x86_64
+          brew_prefix: /usr/local

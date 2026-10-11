@@ -1,0 +1,15 @@
+# Versions pinned for every machine. Bump here, re-run provision.yml.
+dotfiles_repo: https://github.com/KngZhi/dotfiles.git
+dotfiles_dir: "{{ ansible_env.HOME }}/repo/dotfiles"
+local_bin: "{{ ansible_env.HOME }}/.local/bin"
+
+mise_version: v2026.10.8
+# mise downloads prebuilt node (nodejs.org), python (python-build-standalone), go (go.dev),
+# uv (GitHub releases). compile=false makes a missing prebuilt an error, never a source build.
+mise_tools:
+  node: "24"
+  python: ["3.12", "3.11"]      # saoko worker venv is 3.12, hermes venv is 3.11
+  uv: "latest"
+  go: "1.27"
+
+op_cli_version: 2.40.0          # 1Password CLI, universal pkg, extracted without root

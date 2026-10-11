@@ -1,0 +1,36 @@
+- name: Installed mise version
+  ansible.builtin.command: "{{ local_bin }}/mise --version"
+  register: mise_have
+  changed_when: false
+  failed_when: false
+
+- name: Install mise (prebuilt binary for this arch)
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -fsSL https://mise.run | MISE_VERSION={{ mise_version }} MISE_INSTALL_PATH={{ local_bin }}/mise sh
+  args:
+    executable: /bin/bash
+  when: mise_have.rc != 0 or (mise_version | regex_replace('^v','')) not in mise_have.stdout
+
+- name: mise config (tool versions, no source builds)
+  ansible.builtin.template:
+    src: mise.toml.j2
+    dest: "{{ ansible_env.HOME }}/.config/mise/config.toml"
+    mode: "0644"
+  register: mise_cfg
+
+- name: Install pinned runtimes
+  ansible.builtin.command: "{{ local_bin }}/mise install --yes"
+  register: mise_install
+  changed_when: "'installed' in mise_install.stderr or 'installed' in mise_install.stdout"
+  environment:
+    MISE_YES: "1"
+
+- name: Resolved runtimes
+  ansible.builtin.command: "{{ local_bin }}/mise ls --current"
+  register: mise_ls
+  changed_when: false
+
+- name: Show runtimes
+  ansible.builtin.debug:
+    msg: "{{ mise_ls.stdout_lines }}"

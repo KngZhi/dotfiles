@@ -1,0 +1,7 @@
+# ansible-playbook provision.yml -l mbp-intel            (user-level, no password)
+# ansible-playbook provision.yml -l mbp-intel -K --tags sudo   (power settings, tailscaled daemon)
+- name: Base machine setup
+  hosts: all
+  gather_facts: true
+  roles:
+    - base

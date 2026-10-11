@@ -1,0 +1,9 @@
+# Managed by dotfiles/infra (roles/base). Edit group_vars/all.yml, not this file.
+[settings]
+node.compile = false
+python.compile = false
+
+[tools]
+{% for name, ver in mise_tools.items() %}
+{{ name }} = {{ ver | to_json }}
+{% endfor %}

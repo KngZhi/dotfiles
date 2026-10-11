@@ -1,0 +1,37 @@
+- name: Installed op version
+  ansible.builtin.command: "{{ local_bin }}/op --version"
+  register: op_have
+  changed_when: false
+  failed_when: false
+
+- name: Download and unpack the 1Password CLI pkg (universal binary, no root needed)
+  when: op_have.rc != 0 or op_have.stdout.strip() != op_cli_version
+  block:
+    - name: Temp dir
+      ansible.builtin.tempfile:
+        state: directory
+      register: op_tmp
+    - name: Fetch pkg
+      ansible.builtin.get_url:
+        url: "https://cache.agilebits.com/dist/1P/op2/pkg/v{{ op_cli_version }}/op_apple_universal_v{{ op_cli_version }}.pkg"
+        dest: "{{ op_tmp.path }}/op.pkg"
+        mode: "0644"
+    - name: Expand pkg payload
+      ansible.builtin.command: pkgutil --expand-full {{ op_tmp.path }}/op.pkg {{ op_tmp.path }}/x
+    - name: Find the op binary inside the payload
+      ansible.builtin.find:
+        paths: "{{ op_tmp.path }}/x"
+        patterns: op
+        recurse: true
+        file_type: file
+      register: op_bin
+    - name: Install op into ~/.local/bin
+      ansible.builtin.copy:
+        src: "{{ op_bin.files[0].path }}"
+        dest: "{{ local_bin }}/op"
+        mode: "0755"
+        remote_src: true
+    - name: Clean up
+      ansible.builtin.file:
+        path: "{{ op_tmp.path }}"
+        state: absent

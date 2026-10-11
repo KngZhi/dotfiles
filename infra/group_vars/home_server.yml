@@ -1,0 +1,48 @@
+# What the home server runs. Data only: the services role (next step) consumes this.
+# Order = migration order from the Air. WhatsApp last (single session), per-machine agents
+# (type4me, cass, skills-update) are NOT here: they stay on the machine the person types on.
+manage_runtimes: true
+manage_tailscale: true
+tailscale_version: v1.104.1
+
+services:
+  - name: github-runners
+    repo: none
+    note: "2 runners, not 8: one `ci` and one `deploy`. osx-x64 tarball from actions/runner."
+    labels: [ci, deploy]
+  - name: order-printer-local-server
+    repo: https://github.com/KngZhi/order-printer
+    root: "{{ ansible_env.HOME }}/services/order-printer-local-server"
+    plists: [com.order-printer.local-server, com.order-printer.local-server-heartbeat, com.order-printer.local-server-autodeploy]
+    needs_gui: true          # Scotiabank headed Chrome
+    health: "http://127.0.0.1:3001/health"
+    after_move: "fly secrets set BANK_SERVICE_URL/FACTURA_SERVICE_URL=http://<intel tailscale ip>:3001 -a order-printer"
+  - name: hermes
+    root: "{{ ansible_env.HOME }}/.hermes"
+    plists: [ai.hermes.gateway, ai.hermes.gateway-watchdog]
+    python: "3.11"
+  - name: linear-local-agents
+    repo: https://github.com/KngZhi/dotfiles
+    path: shared/linear-agents
+    plists: [com.junwei.linear-local-agents.bridge, com.junwei.linear-local-agents.claude, com.junwei.linear-local-agents.codex]
+  - name: agent-runtime-trigger
+    repo: https://github.com/KngZhi/agent-runtime-trigger
+    plists: [com.junwei.agent-runtime-trigger.dev, com.junwei.agent-runtime-trigger.update]
+  - name: cliproxyapi
+    plists: [homebrew.mxcl.cliproxyapi]
+    note: "brew formula on the Air; on Intel use the vendor binary, not a Tier 3 source build"
+  - name: eink-board
+    repo: https://github.com/KngZhi/eink-board
+    plists: [local.eink-board]
+  - name: chile-ops-whatsapp-status-daily
+    repo: https://github.com/KngZhi/chile-ops
+    plists: [com.chile-ops.whatsapp-status-daily]
+  - name: ispy-agent-dvr
+    plists: [com.ispy.agent.dvr]
+    needs_gui: true
+  - name: saoko-whatsapp
+    repo: https://github.com/KngZhi/saoko-whatsapp
+    plists: [com.saoko.docker-desktop, com.saoko.whatsapp-bridge, com.saoko.whatsapp-worker, com.saoko.whatsapp-watchdog, com.saoko.waha-probe]
+    python: "3.12"
+    before_move: "deploy.sh needs a deploy lock and group rollback (ENG-104); WAHA image must be an amd64 tag"
+    single_session: true
