@@ -18,6 +18,7 @@ services:
     needs_gui: true          # Scotiabank headed Chrome
     health: "http://127.0.0.1:3001/health"
     after_move: "fly secrets set BANK_SERVICE_URL/FACTURA_SERVICE_URL=http://<intel tailscale ip>:3001 -a order-printer"
+    note: "moving 2026-10-11 (first of the remaining services); the repo/service is to be renamed afterwards (name no longer fits)"
   - name: hermes
     root: "{{ ansible_env.HOME }}/.hermes"
     plists: [ai.hermes.gateway, ai.hermes.gateway-watchdog]
@@ -29,24 +30,28 @@ services:
   - name: agent-runtime-trigger
     repo: https://github.com/KngZhi/agent-runtime-trigger
     plists: [com.junwei.agent-runtime-trigger.dev, com.junwei.agent-runtime-trigger.update]
+    retired: "2026-10-11, not migrated (operator decision); Air plists parked in ~/Library/LaunchAgents.disabled-20261011. The repo's CI runner stays."
   - name: cliproxyapi
     plists: [homebrew.mxcl.cliproxyapi]
-    note: "brew formula on the Air; on Intel use the vendor binary, not a Tier 3 source build"
+    retired: "2026-10-11, not migrated (operator decision); stopped on the Air, nothing referenced 127.0.0.1:8317"
   - name: eink-board
     repo: https://github.com/KngZhi/eink-board
     plists: [local.eink-board]
   - name: chile-ops-whatsapp-status-daily
     repo: https://github.com/KngZhi/chile-ops
     plists: [com.chile-ops.whatsapp-status-daily]
+    moved: "2026-10-11 -> Dagu DAG whatsapp-status-daily (dags/), worktree ~/repo/chile-ops-worktrees/whatsapp-status-daily"
   - name: ispy-agent-dvr
     plists: [com.ispy.agent.dvr]
     needs_gui: true
+    retired: "2026-10-11, camera not needed (operator decision); Air plist parked"
   - name: saoko-whatsapp
     repo: https://github.com/KngZhi/saoko-whatsapp
     plists: [com.saoko.docker-desktop, com.saoko.whatsapp-bridge, com.saoko.whatsapp-worker, com.saoko.whatsapp-watchdog, com.saoko.waha-probe]
     python: "3.12"
     before_move: "deploy.sh needs a deploy lock and group rollback (ENG-104); WAHA image must be an amd64 tag"
     single_session: true
+    moved: "2026-10-11 18:28 (roles/whatsapp); Air plists parked, Air data kept for rollback"
 
 # GitHub self-hosted runners. KngZhi is a personal account, so runners are per repository.
 # chile-mono gets three (most of the work happens there), the rest one each: 7 listeners.
