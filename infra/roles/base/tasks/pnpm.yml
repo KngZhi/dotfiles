@@ -1,7 +1,7 @@
 # pnpm for the chile-mono production clone (cron jobs run from Dagu, deploys from the
 # self-hosted runner). Installed into mise's node with its own npm: no Homebrew build.
 # chile-mono's deploy.py and crontab hard-code /opt/homebrew/bin/pnpm; on this Intel
-# /opt/homebrew/bin -> /usr/local/bin (created below), and /usr/local/bin/pnpm links the mise shim, which
+# /opt/homebrew/bin -> /usr/local/bin (air-paths.yml), and /usr/local/bin/pnpm links the mise shim, which
 # runs pnpm under mise's node (the old Homebrew node 20 in /usr/local/bin is too old).
 - name: Installed pnpm version
   ansible.builtin.command: "{{ ansible_env.HOME }}/.local/share/mise/shims/pnpm --version"
@@ -19,21 +19,6 @@
 - name: Refresh mise shims
   ansible.builtin.command: "{{ local_bin }}/mise reshim"
   when: pnpm_install is changed
-
-- name: Air-compatible /opt/homebrew (Intel prefix is /usr/local; Air paths in chile-mono stay valid)
-  become: true
-  ansible.builtin.file:
-    path: /opt/homebrew
-    state: directory
-    mode: "0755"
-
-- name: /opt/homebrew/bin and /opt/homebrew/opt point into /usr/local
-  become: true
-  ansible.builtin.file:
-    src: "/usr/local/{{ item }}"
-    dest: "/opt/homebrew/{{ item }}"
-    state: link
-  loop: [bin, opt]
 
 - name: /opt/homebrew/bin/pnpm resolves to the mise shim
   ansible.builtin.file:

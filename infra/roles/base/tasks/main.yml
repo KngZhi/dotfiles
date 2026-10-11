@@ -39,6 +39,11 @@
   when: manage_runtimes
   tags: mise
 
+- name: Air-compatible /opt/homebrew paths (server only)
+  ansible.builtin.import_tasks: air-paths.yml
+  when: "'home_server' in group_names"
+  tags: [sudo, air-paths, pnpm]
+
 - name: pnpm for the chile-mono cron clone (server only)
   ansible.builtin.import_tasks: pnpm.yml
   when: "'home_server' in group_names"

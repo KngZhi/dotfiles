@@ -1,0 +1,43 @@
+# Air paths on the Intel. Services and chile-mono jobs moved from the Air hard-code
+# /opt/homebrew/{bin,opt}/...; the Intel's Homebrew prefix is /usr/local, so /opt/homebrew is a
+# plain directory whose bin and opt link into /usr/local. brew resolves its prefix with
+# `pwd -P`, so login shells still see HOMEBREW_PREFIX=/usr/local.
+- name: Air-compatible /opt/homebrew (Intel prefix is /usr/local; Air paths in chile-mono stay valid)
+  become: true
+  ansible.builtin.file:
+    path: /opt/homebrew
+    state: directory
+    mode: "0755"
+
+- name: /opt/homebrew/bin and /opt/homebrew/opt point into /usr/local
+  become: true
+  ansible.builtin.file:
+    src: "/usr/local/{{ item }}"
+    dest: "/opt/homebrew/{{ item }}"
+    state: link
+  loop: [bin, opt]
+
+# chile-mono yollgo-sync cleanup runs /opt/homebrew/opt/trash/bin/trash. Today that is the
+# Homebrew `trash` 0.9.2 keg already in /usr/local (same tool as on the Air). If the keg goes
+# away (Homebrew on Intel is Tier 3), fall back to macOS's own /usr/bin/trash (same
+# `trash <file>` call); never build the formula.
+- name: Homebrew trash keg present?
+  ansible.builtin.stat:
+    path: /usr/local/opt/trash/bin/trash
+  register: trash_keg
+
+- name: Fallback trash directory
+  become: true
+  ansible.builtin.file:
+    path: /usr/local/opt/trash/bin
+    state: directory
+    mode: "0755"
+  when: not trash_keg.stat.exists
+
+- name: Fallback /opt/homebrew/opt/trash/bin/trash -> /usr/bin/trash
+  become: true
+  ansible.builtin.file:
+    src: /usr/bin/trash
+    dest: /usr/local/opt/trash/bin/trash
+    state: link
+  when: not trash_keg.stat.exists
