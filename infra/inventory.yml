@@ -19,6 +19,6 @@ all:
     home_server:          # B: the launchd services (see group_vars/home_server.yml)
       hosts:
         mbp-intel:
-          ansible_host: mbp-intel          # Tailscale MagicDNS; 100.122.236.59
+          ansible_host: 100.122.236.59     # Tailscale IP (MagicDNS name mbp-intel resolves late after a wake)
           arch: x86_64
           brew_prefix: /usr/local
