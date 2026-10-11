@@ -1,7 +1,7 @@
 # 迁自 Air crontab（chile-mono ops/cron/crontab.in 渲染结果）。时间表的唯一来源仍是 crontab.in：
 # 那边改了时间，这里同步改。Intel 上 cron 守护进程已关闭（roles/base/tasks/cron.yml），
 # deploy.py 装进来的 crontab 不会触发，Dagu 是唯一的调度器。不重试：run.sh 失败即推 Telegram。
-description: K2046 商品图片与 products.csv 同步到友购（OneDrive）和 Google Drive 的 Fardo、Mayor 目录；失败才推 Telegram
+description: K2046 商品图片与 products.csv 同步到 OneDrive 的友购在线图片、SAOKO-Fardo、SAOKO-Mayor 目录；失败才推 Telegram
 schedule: "0 8 * * *"
 hist_retention_days: 30
 max_active_runs: 1
