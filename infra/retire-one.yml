@@ -19,14 +19,22 @@
   no_log: true
   changed_when: false
 
-- name: "{{ rinfo.agentName }}: deregister"
-  ansible.builtin.command: ./config.sh remove --token "$RUNNER_TOKEN"
+- name: "{{ rinfo.agentName }}: deregister (shell, so $RUNNER_TOKEN expands; the command module passed it literally)"
+  ansible.builtin.shell: ./config.sh remove --token "$RUNNER_TOKEN"
   args:
     chdir: "{{ rdir }}"
   environment:
     RUNNER_TOKEN: "{{ rm_token.stdout }}"
   no_log: true
-  failed_when: false
+  register: dereg
+  failed_when: dereg.rc != 0
+
+- name: "{{ rinfo.agentName }}: gone from GitHub?"
+  ansible.builtin.command: gh api repos/{{ github_owner }}/{{ rrepo }}/actions/runners --jq '[.runners[] | select(.name == "{{ rinfo.agentName }}")] | length'
+  delegate_to: localhost
+  register: still_there
+  changed_when: false
+  failed_when: still_there.stdout.strip() != "0"
 
 - name: "{{ rinfo.agentName }}: delete plist and directory"
   ansible.builtin.file:
