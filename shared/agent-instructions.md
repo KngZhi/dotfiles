@@ -1,5 +1,11 @@
 # Shared agent instructions
 
+## Global skills
+
+Before creating, installing, updating, or repairing a global skill, read
+`~/repo/dotfiles/shared/skills/install-shared-skill/SKILL.md` and follow its
+dotfiles workflow before generic installer or skill-creator defaults.
+
 ## K2046 and Linear standing authorization
 
 The user grants standing authorization to use K2046 and Linear through existing

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Install shared skill"
+  short_description: "Manage global skills through the shared dotfiles workflow"
+  default_prompt: "Use $install-shared-skill to install this skill through dotfiles and verify Pi, Codex, OpenCode and Claude Code discovery."
