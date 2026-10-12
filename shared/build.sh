@@ -5,6 +5,14 @@ set -euo pipefail
 
 DOTFILES_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 DEPLOY_HOME="${DOTFILES_DEPLOY_HOME:-$HOME}"
+# The shared catalog is published to ~/.agents/skills, read by Pi, Codex and
+# OpenCode (Hermes only when listed in skills.external_dirs). Claude Code does
+# not read the user-scope .agents/skills, so the catalog is mirrored into its
+# own directory. Codex reads both roots and would list a name twice, so a name
+# is published to exactly one of them. OpenCode also reads both: it dedupes by
+# name and logs a duplicate warning, which is harmless, and suppressing the
+# .claude scan would hide Claude-only skills from it too.
+AGENTS_SKILLS="$DEPLOY_HOME/.agents/skills"
 CLAUDE_SKILLS="$DEPLOY_HOME/.claude/skills"
 CODEX_SKILLS="$DEPLOY_HOME/.codex/skills"
 PACKS_DIR="$DOTFILES_DIR/shared/skill-packs"
@@ -69,33 +77,44 @@ cleanup() {
     rm -rf "$STAGING"
 }
 trap cleanup EXIT
-mkdir "$STAGING/packs" "$STAGING/local"
+mkdir "$STAGING/packs" "$STAGING/local" "$STAGING/claude"
 
+# `local` is the shared pool (every harness); `claude` holds Claude-only skills
+# authored under shared/.claude/skills. Names must be unique across both pools.
 add_local_skill() {
-    local sdir="$1" name="${1##*/}"
+    local sdir="$1" pool="$2" name="${1##*/}" taken
     [ -f "$sdir/SKILL.md" ] || return 0
-    [ ! -e "$STAGING/local/$name" ] || {
-        echo "Duplicate local skill: $name" >&2; return 1;
-    }
-    ln -s "$sdir" "$STAGING/local/$name"
+    for taken in "$STAGING/local/$name" "$STAGING/claude/$name"; do
+        [ ! -e "$taken" ] || {
+            echo "Duplicate local skill: $name" >&2; return 1;
+        }
+    done
+    ln -s "$sdir" "$STAGING/$pool/$name"
 }
 
-for local_root in "$DOTFILES_DIR/shared/skills" "$DOTFILES_DIR/shared/.agents/skills" "$DOTFILES_DIR/shared/.claude/skills"; do
+for local_root in "$DOTFILES_DIR/shared/skills" "$DOTFILES_DIR/shared/.agents/skills"; do
     [ -d "$local_root" ] || continue
-    for sdir in "$local_root"/*; do add_local_skill "$sdir"; done
+    for sdir in "$local_root"/*; do add_local_skill "$sdir" local; done
+done
+for sdir in "$DOTFILES_DIR/shared/.claude/skills"/*; do
+    [ -f "$sdir/SKILL.md" ] || continue
+    add_local_skill "$sdir" claude
 done
 for sdir in "$DOTFILES_DIR/codex/skills"/*; do
     name="${sdir##*/}"
     [ -f "$sdir/SKILL.md" ] || continue
-    [ ! -e "$STAGING/local/$name" ] || {
-        echo "Shared/Codex skill collision: $name" >&2; exit 1;
-    }
+    for taken in "$STAGING/local/$name" "$STAGING/claude/$name"; do
+        [ ! -e "$taken" ] || {
+            echo "Shared/Codex skill collision: $name" >&2; exit 1;
+        }
+    done
 done
 
 deploy_pack_skill() {
     local sdir="$1" name="${1##*/}"
     case " $PACK_SKILL_EXCLUDE " in *" $name "*) return 0 ;; esac
-    [ ! -e "$STAGING/local/$name" ] && [ ! -e "$STAGING/packs/$name" ] &&
+    [ ! -e "$STAGING/local/$name" ] && [ ! -e "$STAGING/claude/$name" ] &&
+        [ ! -e "$STAGING/packs/$name" ] &&
         [ ! -f "$DOTFILES_DIR/codex/skills/$name/SKILL.md" ] || {
         echo "Duplicate skill name: $name" >&2; return 1;
     }
@@ -167,47 +186,78 @@ for override in "$OVERRIDES"/*; do
     }
 done
 
-mkdir -p "$CLAUDE_SKILLS" "$CODEX_SKILLS"
+mkdir -p "$AGENTS_SKILLS" "$CLAUDE_SKILLS" "$CODEX_SKILLS"
 # Preflight all destinations before replacing the generated pack view.
 for dest in "$DEPLOY_HOME/.claude/CLAUDE.md" "$DEPLOY_HOME/.codex/AGENTS.md"; do
     if [ -e "$dest" ] || [ -L "$dest" ]; then
         owned_link "$dest" || { echo "Refusing to replace unmanaged instructions: $dest" >&2; exit 1; }
     fi
 done
-for entry in "$STAGING/local"/* "$STAGING/packs"/* "$DOTFILES_DIR/codex/skills"/*; do
+require_owned_skill_dest() {
+    local dest="$1"
+    if [ -e "$dest" ] || [ -L "$dest" ]; then
+        owned_link "$dest" || { echo "Refusing to replace unmanaged skill: $dest" >&2; exit 1; }
+    fi
+}
+for entry in "$STAGING/local"/* "$STAGING/packs"/*; do
     [ -f "$entry/SKILL.md" ] || continue
-    for dest in "$CLAUDE_SKILLS/${entry##*/}" "$CODEX_SKILLS/${entry##*/}"; do
-        case "$entry:$dest" in "$DOTFILES_DIR/codex/skills/"*:"$CLAUDE_SKILLS/"*) continue ;; esac
-        if [ -e "$dest" ] || [ -L "$dest" ]; then
-            owned_link "$dest" || { echo "Refusing to replace unmanaged skill: $dest" >&2; exit 1; }
-        fi
-    done
+    require_owned_skill_dest "$AGENTS_SKILLS/${entry##*/}"
+    require_owned_skill_dest "$CLAUDE_SKILLS/${entry##*/}"
+done
+for entry in "$STAGING/claude"/* "$DOTFILES_DIR/codex/skills"/*; do
+    [ -f "$entry/SKILL.md" ] || continue
+    case "$entry" in
+        "$DOTFILES_DIR/codex/skills/"*) require_owned_skill_dest "$CODEX_SKILLS/${entry##*/}" ;;
+        *) require_owned_skill_dest "$CLAUDE_SKILLS/${entry##*/}" ;;
+    esac
 done
 
 # .deploy is generated output. Keep the previous view until link publication succeeds.
 [ ! -L "$PACKS_DEPLOY" ] || { echo "Expected a generated directory: $PACKS_DEPLOY" >&2; exit 1; }
 if [ -e "$PACKS_DEPLOY" ]; then mv "$PACKS_DEPLOY" "$STAGING/previous"; fi
 mv "$STAGING/packs" "$PACKS_DEPLOY"
+# The shared catalog reaches every harness: ~/.agents/skills for Pi, Codex and
+# OpenCode (Hermes when configured), plus ~/.claude/skills for Claude Code alone.
 for entry in "$STAGING/local"/* "$PACKS_DEPLOY"/*; do
     [ -f "$entry/SKILL.md" ] || continue
     source="$entry"
     case "$entry" in "$STAGING/local/"*) source="$(readlink "$entry")" ;; esac
-    link_skill "$source" "$CLAUDE_SKILLS/${entry##*/}"
-    link_skill "$source" "$CODEX_SKILLS/${entry##*/}"
+    name="${entry##*/}"
+    link_skill "$source" "$AGENTS_SKILLS/$name"
+    link_skill "$source" "$CLAUDE_SKILLS/$name"
 done
+# Claude-only shared sources stay out of the other harnesses' view.
+for entry in "$STAGING/claude"/*; do
+    [ -f "$entry/SKILL.md" ] || continue
+    link_skill "$(readlink "$entry")" "$CLAUDE_SKILLS/${entry##*/}"
+done
+# Codex-only sources are published to its own root only: Codex already reads
+# ~/.agents/skills, so mirroring them there would list every skill twice.
 for sdir in "$DOTFILES_DIR/codex/skills"/*; do
     [ -f "$sdir/SKILL.md" ] || continue
     link_skill "$sdir" "$CODEX_SKILLS/${sdir##*/}"
 done
 
-# Retire only our links whose names are no longer in the selected catalog.
-for target in "$CLAUDE_SKILLS" "$CODEX_SKILLS"; do
+# Retire only our links whose names are no longer in the selected catalog for
+# that root. The shared pool feeds ~/.agents/skills and ~/.claude/skills; the
+# Claude-only pool only the latter; Codex's own root carries codex-only names
+# alone, because the shared pool already reaches Codex through ~/.agents/skills.
+name_selected() {
+    local name="$1" target="$2"
+    if [ "$target" = "$CODEX_SKILLS" ]; then
+        [ -f "$DOTFILES_DIR/codex/skills/$name/SKILL.md" ]
+        return
+    fi
+    [ -f "$STAGING/local/$name/SKILL.md" ] && return 0
+    [ -f "$PACKS_DEPLOY/$name/SKILL.md" ] && return 0
+    [ "$target" = "$CLAUDE_SKILLS" ] && [ -f "$STAGING/claude/$name/SKILL.md" ] && return 0
+    return 1
+}
+for target in "$AGENTS_SKILLS" "$CLAUDE_SKILLS" "$CODEX_SKILLS"; do
     for link in "$target"/*; do
         owned_link "$link" || continue
         name="${link##*/}"
-        [ -f "$STAGING/local/$name/SKILL.md" ] && continue
-        [ -f "$PACKS_DEPLOY/$name/SKILL.md" ] && continue
-        [ "$target" = "$CODEX_SKILLS" ] && [ -f "$DOTFILES_DIR/codex/skills/$name/SKILL.md" ] && continue
+        name_selected "$name" "$target" && continue
         rm "$link"
         echo "Retired managed link: $link"
     done
@@ -216,8 +266,11 @@ link_skill "$DOTFILES_DIR/claude/CLAUDE.md" "$DEPLOY_HOME/.claude/CLAUDE.md"
 link_skill "$DOTFILES_DIR/shared/agent-instructions.md" "$DEPLOY_HOME/.codex/AGENTS.md"
 PUBLISHED=1
 echo "Deployed skills and instructions from $DOTFILES_DIR"
-# Hermes reads these directories directly; configuration remains user-owned.
-for want in "$DOTFILES_DIR/shared/skills" "$PACKS_DEPLOY"; do
-    grep -qF "$want" "$DEPLOY_HOME/.hermes/config.yaml" 2>/dev/null ||
-        echo "Hermes: $want is not listed in skills.external_dirs"
-done
+# Hermes reaches the shared catalog through skills.external_dirs; configuration
+# stays user-owned, so only report. ~/.agents/skills is the stable entry: it
+# carries the whole published catalog, so the older per-source entries
+# (shared/skills, the generated .deploy) are redundant next to it.
+if ! grep -qF "$AGENTS_SKILLS" "$DEPLOY_HOME/.hermes/config.yaml" 2>/dev/null; then
+    echo "Hermes: list $AGENTS_SKILLS in skills.external_dirs (it replaces the" >&2
+    echo "        shared/skills and shared/skill-packs/.deploy entries)." >&2
+fi

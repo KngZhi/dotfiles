@@ -76,5 +76,9 @@ seed claude/settings.json "$H/.claude/settings.json"
 link codex/rules    "$H/.codex/rules"
 seed codex/config.toml "$H/.codex/config.toml"
 
-# skills, CLAUDE.md, AGENTS.md
+# skills, CLAUDE.md, AGENTS.md. shared/build.sh publishes the shared catalog to
+# ~/.agents/skills, read by Pi, Codex and OpenCode (Hermes only when the
+# directory is listed in skills.external_dirs), and mirrors it into
+# ~/.claude/skills, which Claude Code reads instead of the user-scope
+# .agents/skills. Codex-only skills stay under ~/.codex/skills.
 "$DOTFILES_DIR/shared/build.sh"

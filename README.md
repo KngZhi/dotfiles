@@ -17,6 +17,8 @@
 | `migrate/` | `migrate-home-to` 的 rsync 排除规则 | 脚本读取 |
 | `Brewfile` | Homebrew formula、cask、VS Code 扩展、npm/uv 全局包 | `brew bundle` |
 
+技能只写一份，谁都能用。`shared/build.sh` 把共用技能发布到 `~/.agents/skills`（Pi、Codex、OpenCode 读这个目录；Hermes 需要它列在 `skills.external_dirs` 里），同时镜像一份到 `~/.claude/skills`——Claude Code 不读用户级的 `~/.agents/skills`，只读 `~/.claude/skills`。Codex 和 OpenCode 两个目录都读：Codex 遇到同名会列两遍，所以共用技能**只**进 `~/.agents/skills`，`~/.codex/skills` 只放 Codex 专属的（`codex/skills/`）；OpenCode 自己按名字去重，只是多打几条 duplicate 警告，不影响使用，所以 `.claude` 那一路照旧读（关掉它会连带看不到 `synced/` 里的 Claude 专属技能）。只想给 Claude 用的技能放 `shared/.claude/skills/`。
+
 `claude/settings.json` 和 `codex/config.toml` 不做软链接：前者 Claude Code 会自己改写，后者在本机版本里含 MCP 服务的 API key。仓库里的副本只是起点。
 
 ## 新机器

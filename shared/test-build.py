@@ -15,7 +15,9 @@ class BuildTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="dotfiles-build-test-")
         self.addCleanup(self.temp.cleanup)
-        self.base = Path(self.temp.name)
+        # Resolve so the checkout path is physical: macOS /var is a symlink to
+        # /private/var, and owned_link compares a `pwd -P` result to this path.
+        self.base = Path(self.temp.name).resolve()
         self.repo = self.base / "repo"
         self.home = self.base / "runtime"
         self.write("shared/build.sh", BUILD.read_text())
@@ -31,6 +33,7 @@ class BuildTests(unittest.TestCase):
                    "policy:\n  allow_implicit_invocation: false\n")
         self.skill("shared/skills/explain-like-five", "shared")
         self.skill("shared/.agents/skills/git-commit", "commit")
+        self.skill("shared/.claude/skills/claude-only", "claude")
         self.skill("codex/skills/codex-only", "codex")
 
     def write(self, relative, text):
@@ -61,7 +64,9 @@ class BuildTests(unittest.TestCase):
         self.skill("shared/skill-overrides/example", "local instructions")
         self.run_build()
         self.run_build()
-        for host in (".claude", ".codex"):
+        # The shared catalog reaches .claude and .agents, never Codex's own root
+        # (Codex already reads .agents, so a copy there would list it twice).
+        for host in (".claude", ".agents"):
             skill = self.runtime_skill(host, "example")
             self.assertEqual((skill / "SKILL.md").read_text(), "local instructions\n")
             self.assertEqual((skill / "reference.md").read_text(), "reference\n")
@@ -69,16 +74,45 @@ class BuildTests(unittest.TestCase):
             self.assertTrue((self.runtime_skill(host, "git-commit") / "SKILL.md").is_file())
             self.assertEqual(self.runtime_skill(host, "explain-like-five").resolve(),
                              (self.repo / "shared/skills/explain-like-five").resolve())
+            self.assertFalse(self.runtime_skill(host, "codex-only").exists())
         self.assertEqual((self.pack / "skills/example/SKILL.md").read_text(), "upstream\n")
-        self.assertFalse(self.runtime_skill(".claude", "codex-only").exists())
+        self.assertTrue(self.runtime_skill(".claude", "claude-only").exists())
+        self.assertFalse(self.runtime_skill(".agents", "claude-only").exists())
+        self.assertFalse(self.runtime_skill(".codex", "explain-like-five").exists())
         self.assertTrue(self.runtime_skill(".codex", "codex-only").exists())
+        self.assertFalse(self.runtime_skill(".claude", "codex-only").exists())
+        self.assertFalse(self.runtime_skill(".agents", "codex-only").exists())
         self.assertEqual((self.home / ".codex/AGENTS.md").read_text(), "shared instructions\n")
+
+    def test_second_build_is_idempotent(self):
+        self.run_build()
+        result = self.run_build()
+        # Nothing was retired or rewritten, so the catalog only grew the first time.
+        self.assertNotIn("Retired managed link", result.stdout + result.stderr)
+        for host in (".agents", ".claude", ".codex"):
+            for entry in (self.home / host / "skills").iterdir():
+                if entry.is_symlink():
+                    self.assertTrue(entry.exists(), f"dangling link {entry}")
+
+    def test_claude_skills_symlink_uses_relative_links(self):
+        # The live layout makes ~/.claude/skills a symlink to the checkout's
+        # claude/skills. owned_link's relative arm and link_skill's relative
+        # rewrite only fire on that path, so exercise it instead of a plain dir.
+        checkout_skills = self.repo / "claude/skills"
+        checkout_skills.mkdir(parents=True)
+        (self.home / ".claude").mkdir(parents=True, exist_ok=True)
+        (self.home / ".claude/skills").symlink_to(checkout_skills)
+        self.run_build()
+        self.run_build()  # must not report an unmanaged skill for our own links
+        link = checkout_skills / "explain-like-five"
+        self.assertTrue(link.is_symlink())
+        self.assertEqual(link.resolve(), (self.repo / "shared/skills/explain-like-five").resolve())
 
     def test_local_notes_follow_upstream_instructions(self):
         self.write("shared/skill-overrides/example/LOCAL.md", "local note\n")
         self.run_build()
         self.run_build()
-        for host in (".claude", ".codex"):
+        for host in (".claude", ".agents"):
             skill = self.runtime_skill(host, "example")
             self.assertEqual((skill / "SKILL.md").read_text(), "upstream\n\nlocal note\n")
             self.assertFalse((skill / "LOCAL.md").exists())
@@ -105,17 +139,18 @@ class BuildTests(unittest.TestCase):
         outside = self.base / "custom"
         outside.mkdir()
         (outside / "SKILL.md").write_text("custom")
-        custom = self.runtime_skill(".codex", "custom")
+        custom = self.runtime_skill(".agents", "custom")
         custom.symlink_to(outside)
-        dangling = self.runtime_skill(".codex", "custom-broken")
+        dangling = self.runtime_skill(".agents", "custom-broken")
         dangling.symlink_to(self.base / "missing")
         # Neither an unselected clone nor custom runtime content is generated output.
         unlisted = self.write("shared/skill-packs/unlisted/notes.md", "keep me")
         shutil.rmtree(self.pack / "skills/removed")
         (self.pack / "skills/example/reference.md").unlink()
         self.run_build()
-        self.assertFalse(self.runtime_skill(".codex", "removed").is_symlink())
-        self.assertFalse((self.runtime_skill(".codex", "example") / "reference.md").exists())
+        for host in (".claude", ".agents"):
+            self.assertFalse(self.runtime_skill(host, "removed").is_symlink())
+            self.assertFalse((self.runtime_skill(host, "example") / "reference.md").exists())
         self.assertEqual((custom / "SKILL.md").read_text(), "custom")
         self.assertTrue(dangling.is_symlink())
         self.assertEqual(unlisted.read_text(), "keep me")
@@ -123,7 +158,10 @@ class BuildTests(unittest.TestCase):
     def test_foreign_skill_collision_leaves_previous_view_unchanged(self):
         self.run_build()
         self.skill("shared/skill-overrides/example", "new overlay")
-        destination = self.runtime_skill(".codex", "example")
+        # Would be published before the collision is reached if the preflight
+        # were skipped, so this proves the failure happens before any link lands.
+        self.skill("shared/skills/brand-new", "brand new")
+        destination = self.runtime_skill(".agents", "example")
         destination.unlink()
         destination.mkdir()
         (destination / "SKILL.md").write_text("user work")
@@ -131,6 +169,32 @@ class BuildTests(unittest.TestCase):
         self.assertIn("unmanaged skill", result.stderr)
         self.assertEqual((destination / "SKILL.md").read_text(), "user work")
         self.assertEqual((self.runtime_skill(".claude", "example") / "SKILL.md").read_text(), "upstream\n")
+        self.assertFalse(self.runtime_skill(".agents", "brand-new").exists())
+        self.assertFalse(self.runtime_skill(".claude", "brand-new").exists())
+
+    def test_name_moving_into_claude_only_pool_leaves_agents(self):
+        self.skill("shared/skills/mover", "shared body")
+        self.run_build()
+        self.assertTrue(self.runtime_skill(".agents", "mover").exists())
+        self.assertTrue(self.runtime_skill(".claude", "mover").exists())
+        shutil.rmtree(self.repo / "shared/skills/mover")
+        self.skill("shared/.claude/skills/mover", "claude body")
+        self.run_build()
+        # The Claude-only pool must not survive in the other harnesses' root.
+        self.assertFalse(os.path.lexists(self.runtime_skill(".agents", "mover")))
+        self.assertEqual((self.runtime_skill(".claude", "mover") / "SKILL.md").read_text(),
+                         "claude body\n")
+
+    def test_codex_root_drops_shared_names_but_keeps_its_own(self):
+        # Codex reads ~/.agents/skills too, so a shared link left in
+        # ~/.codex/skills would make it list that skill twice.
+        self.run_build()
+        shared = self.runtime_skill(".codex", "explain-like-five")
+        shared.symlink_to(self.repo / "shared/skills/explain-like-five")
+        self.run_build()
+        self.assertFalse(os.path.lexists(shared))
+        self.assertTrue(self.runtime_skill(".agents", "explain-like-five").exists())
+        self.assertTrue(self.runtime_skill(".codex", "codex-only").is_symlink())
 
     def test_unmanaged_instructions_are_preserved(self):
         path = self.home / ".codex/AGENTS.md"
@@ -145,14 +209,14 @@ class BuildTests(unittest.TestCase):
                    '{"skills":["./skills/example", "./skills/keel"]}')
         self.skill("shared/skill-packs/author-pack/skills/keel", "excluded")
         self.run_build()
-        self.assertTrue(self.runtime_skill(".codex", "example").exists())
-        self.assertFalse(self.runtime_skill(".codex", "keel").exists())
+        self.assertTrue(self.runtime_skill(".agents", "example").exists())
+        self.assertFalse(self.runtime_skill(".agents", "keel").exists())
 
     def test_orphan_override_fails_before_publication(self):
         self.run_build()
         self.skill("shared/skill-overrides/missing", "orphan")
         self.assertIn("no selected upstream skill", self.run_build(False).stderr)
-        self.assertTrue(self.runtime_skill(".codex", "example").exists())
+        self.assertTrue(self.runtime_skill(".agents", "example").exists())
 
     def test_duplicate_local_name_is_rejected(self):
         self.skill("codex/skills/explain-like-five", "duplicate")
