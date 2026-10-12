@@ -86,6 +86,11 @@ fly_api_token_op_ref: "op://DEV/FLY_API_TOKEN/credential"
 notify_bot_env_files:
   - { path: "{{ ansible_env.HOME }}/.local/share/chile-mono-cron/.env", key: TELEGRAM_BOT_TOKEN }   # run.sh, dagu-probe
   - { path: "{{ ansible_env.HOME }}/repo/chile-mono/.env", key: TELEGRAM_BOT_TOKEN }
+  # saoko-whatsapp: the watchdog, and through watchdog/scripts/notify.sh its deploy notices
+  # and chile-ops' daily Status album. Both chat ids in that file (SAOKO_TELEGRAM_CHAT_ID,
+  # SAOKO_NOTIFY_CHAT_ID) are the alert bot's private chat: the code's default, the group
+  # Ntf_k2046, does not have this bot in it.
+  - { path: "{{ ansible_env.HOME }}/.config/saoko-whatsapp/env", key: SAOKO_TELEGRAM_BOT_TOKEN }
 notify_bot_fly_apps:
   - { app: chile-mono-shopify-order-sync }
   # A one-shot machine outside Fly Launch, so there is nothing to restart: staged, as
