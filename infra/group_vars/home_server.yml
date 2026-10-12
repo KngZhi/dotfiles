@@ -88,6 +88,10 @@ notify_bot_env_files:
   - { path: "{{ ansible_env.HOME }}/repo/chile-mono/.env", key: TELEGRAM_BOT_TOKEN }
 notify_bot_fly_apps:
   - { app: chile-mono-shopify-order-sync }
-  - { app: chile-mono-shopify-k2046-sync, stage: true }   # its Telegram secrets were staged, never deployed; keep it so
+  # A one-shot machine outside Fly Launch, so there is nothing to restart: staged, as
+  # chile-mono's rotate-k2046-token.sh does it, and read at the machine's next start.
+  # `fly secrets list` reports every secret of this app as Staged for the same reason;
+  # that is its normal state, not a pending deploy.
+  - { app: chile-mono-shopify-k2046-sync, stage: true }
 notify_bot_github_repos:
   - KngZhi/chile-mono        # shopify-sync.yml's failure step
