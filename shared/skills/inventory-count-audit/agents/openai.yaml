@@ -1,0 +1,4 @@
+interface:
+  display_name: "库存盘点核查"
+  short_description: "追溯库存盘点大差异，核对历史单据、旧货号、包装单位与实盘范围"
+  default_prompt: "使用 $inventory-count-audit 核查这次库存盘点差异，先追溯原始单据，再说明原因、证据和需要复盘的数量。"
