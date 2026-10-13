@@ -5,8 +5,9 @@ description: 在成本计算前按货柜整理微信附件、出货明细和费�
 
 # 货柜材料整理
 
-首次操作 Linear 前，先读 [linear-usage](../linear-usage/SKILL.md)，按业务分支
-读取 chile-ops 的规则和货柜 SOP，再继续本流程。
+处理、规划或解释涉及 Linear 的步骤时，在本轮答复或执行前先读
+[linear-usage](../linear-usage/SKILL.md) 及其业务引用，再读 chile-ops 的规则和
+货柜 SOP，回到本流程。只读说明也先完成这些规则读取。
 
 把分散的货柜材料整理成可核对的标准输入。用于找附件、按柜归档、整理出货表、
 补材料和核对船期；已整理好的表需要计算成本时，才导出交给 `container-cost`。

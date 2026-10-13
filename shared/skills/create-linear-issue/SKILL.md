@@ -5,9 +5,10 @@ description: Create or revise Linear engineering issues with a short human summa
 
 # Create or Revise a Linear Issue
 
-Before the first Linear operation, read
-[linear-usage](../linear-usage/SKILL.md) and its workspace reference. Return here
-for engineering issue authoring and planning; business operations use their SOP.
+When handling, planning, or explaining a Linear-related step, read
+[linear-usage](../linear-usage/SKILL.md) and its workspace reference in the
+current turn before answering or acting. Return here for engineering issue
+authoring and planning; business operations use their SOP.
 
 Write an Issue a person can understand before reaching implementation details.
 Use two clearly separated parts: a short human summary first, then the Agent's

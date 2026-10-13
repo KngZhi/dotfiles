@@ -1,6 +1,8 @@
 ## Local conventions
 
-For KngZhi repositories, read `linear-usage` before any Linear operation
+For KngZhi repositories, when handling, planning, or explaining a Linear-related
+step, read `linear-usage` and its workspace reference in the current turn before
+answering or acting
 (`~/.agents/skills/linear-usage/SKILL.md`; source fallback:
 `~/repo/dotfiles/shared/skills/linear-usage/SKILL.md`). Read the shared and
 repository instructions and any existing `docs/agents/issue-tracker.md` first.

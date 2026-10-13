@@ -5,8 +5,9 @@ description: 对已整理并核对完成的标准货柜表配置费用、计算�
 
 # 货柜成本计算
 
-首次操作 Linear 前，先读 [linear-usage](../linear-usage/SKILL.md)，按业务分支
-读取 chile-ops 的规则和货柜 SOP，再继续本流程。
+处理、规划或解释涉及 Linear 的步骤时，在本轮答复或执行前先读
+[linear-usage](../linear-usage/SKILL.md) 及其业务引用，再读 chile-ops 的规则和
+货柜 SOP，回到本流程。只读说明也先完成这些规则读取。
 
 接收 `container-intake` 用 `sheets.py export` 从 Google 表格导出的标准 `data/config` xlsx，配置费用并运行现有成本引擎。
 先读工作簿及材料索引，确认必填项和计价单位；归属、整柜明细、采购价或费用范围未核清时，交回

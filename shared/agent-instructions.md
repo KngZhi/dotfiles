@@ -32,11 +32,14 @@ and inspect the existing result before considering another attempt.
 
 ## Issue tracking in Linear
 
-Before the first Linear operation in any task, including a step reached through
-another skill, read `~/.agents/skills/linear-usage/SKILL.md` (source fallback:
+When handling, planning, or explaining a Linear-related step, including one
+reached through another skill, read `~/.agents/skills/linear-usage/SKILL.md` and
+its applicable reference in the current turn before answering or acting (source
+fallback:
 `~/repo/dotfiles/shared/skills/linear-usage/SKILL.md`). It owns workspace/channel
 routing, team conventions, complete reads, and write verification. If unavailable,
-stop the Linear-dependent step and identify the missing entrypoint.
+stop the Linear-dependent step and identify the missing entrypoint. Incidental
+historical mentions alone do not trigger this requirement.
 
 Create, revise, or plan engineering issues through `create-linear-issue` after
 reading that common entrypoint. Business workflows use their repository's skill

@@ -1,12 +1,17 @@
 ---
 name: linear-usage
-description: Linear usage whenever a user task or another skill calls for reading or searching issues, creating or updating issues, comments, attachments, statuses, or relationships. Resolve the workspace and channel, read complete task context, and verify scoped writes before returning to the workflow.
+description: Linear rules for handling, planning, or explaining reads, searches, issue creation or updates, comments, attachments, statuses, and relationships, including steps reached through another skill. Read the common rules and applicable reference in the current turn before answering or acting.
 ---
 
-# Linear usage
+# Linear usage, planning, and explanations
 
-Read this entrypoint before the first Linear operation in a task, including a
-Linear step reached through another skill. Then return to that workflow.
+When handling, planning, or explaining a Linear-related step, read this
+entrypoint and the applicable reference in the current turn before answering
+or acting, including a step reached through another skill. Then return to that
+workflow. For a read-only planning or explanation task, skill-file reads are
+part of preparation and happen before the answer.
+Apply live channel and object checks below when the task calls for Linear operations.
+Incidental historical mentions alone do not trigger this workflow.
 Its description supports discovery; an explicit read instruction establishes
 the dependency. A mention of Linear alone does not guarantee recursive loading.
 Resolve relative reference paths from the directory containing this `SKILL.md`.
