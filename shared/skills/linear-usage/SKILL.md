@@ -8,13 +8,34 @@ description: Linear rules for handling, planning, or explaining reads, searches,
 When handling, planning, or explaining a Linear-related step, read this
 entrypoint and the applicable reference in the current turn before answering
 or acting, including a step reached through another skill. Then return to that
-workflow. For a read-only planning or explanation task, skill-file reads are
-part of preparation and happen before the answer.
-Apply live channel and object checks below when the task calls for Linear operations.
-Incidental historical mentions alone do not trigger this workflow.
-Its description supports discovery; an explicit read instruction establishes
-the dependency. A mention of Linear alone does not guarantee recursive loading.
+workflow. Read the files before answering a read-only planning or explanation
+request too.
 Resolve relative reference paths from the directory containing this `SKILL.md`.
+
+## Route first
+
+- **Chile business operations:** read
+  [references/chile-operations.md](references/chile-operations.md), then the
+  relevant chile-ops skill and SOP. They own the operator text, stage/checklist,
+  order/container context, and document-link exceptions.
+- **Engineering:** read [references/workspaces.md](references/workspaces.md)
+  and `create-linear-issue` when creating, revising, or planning engineering
+  issues. It owns the human/Agent sections, dependencies, milestones, and PR
+  boundaries. Repository instructions select the project.
+- **Other workspaces:** read [references/workspaces.md](references/workspaces.md)
+  and use their repository or operator conventions. For operations, verify live
+  teams, states, and labels rather than borrowing the KngZhi mappings.
+
+For an explanation of routing, writing format, or next-step rules, read the
+required skills and repository routing instructions, then answer the requested
+questions. Mark unverified current facts as unverified and say how to resolve
+them. A missing optional routing file leaves unresolved targets unverified;
+implementation code or a repository name does not establish the Linear target.
+
+Gather necessary code or architecture context when a requested draft,
+implementation plan, or scope estimate depends on it, distinguishing verified
+facts from hypotheses. For reads or changes to Linear records, apply the
+operations below.
 
 ## Fixed operations
 
@@ -48,22 +69,13 @@ issue; paginate the target's comments or attachments for those operations.
 Compare the intended content and relevant IDs, not just a generic success flag.
 
 If the intended result exists, reuse it and continue only unfinished steps. Retry
-only when a complete read establishes that the result is absent. When reads fail,
+only when a complete read establishes that the result is absent; seeing only the
+first 100 comments in a known partial list is incomplete. When reads fail,
 remain incomplete, or matches are ambiguous, stop that write and report the
 unresolved result. Wait until an existing-result query establishes the outcome;
 repeating a create while the outcome is unknown can duplicate it.
 
-## Judgment and workflow routing
-
-- **Engineering:** read `create-linear-issue` when creating, revising, or planning
-  engineering issues. It owns the human/Agent sections, dependencies, milestones,
-  and PR boundaries. Repository instructions select the project.
-- **Chile business operations:** read
-  [references/chile-operations.md](references/chile-operations.md), then the
-  relevant chile-ops skill and SOP. They own the operator text, stage/checklist,
-  order/container context, and document-link exceptions.
-- **Other workspaces:** use their repository or operator conventions; verify
-  live teams, states, and labels rather than borrowing the KngZhi mappings.
+## Authorization and reporting
 
 Existing standing authorization applies to task-scoped reads and writes. Ask
 only for missing business facts or actions outside existing authorization.
@@ -73,3 +85,6 @@ Respect an explicit read-only instruction.
 Report the actual read or write, its verified destination and result, and any
 incomplete verification. Installation proves the entrypoint is available;
 observed invocation proves that a particular run loaded it.
+
+Incidental historical mentions alone do not trigger this workflow. The
+description supports discovery; explicit read instructions establish dependencies.

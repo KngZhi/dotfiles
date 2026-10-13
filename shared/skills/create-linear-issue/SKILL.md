@@ -10,6 +10,9 @@ When handling, planning, or explaining a Linear-related step, read
 current turn before answering or acting. Return here for engineering issue
 authoring and planning; business operations use their SOP.
 
+For routing or issue-writing rule questions, use `linear-usage`'s explanation
+branch. Drafts and plans still need the code context their content depends on.
+
 Write an Issue a person can understand before reaching implementation details.
 Use two clearly separated parts: a short human summary first, then the Agent's
 execution context. Create and maintain the Issue in Linear; link GitHub code,
