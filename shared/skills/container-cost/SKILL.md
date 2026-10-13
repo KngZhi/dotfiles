@@ -5,6 +5,9 @@ description: 对已整理并核对完成的标准货柜表配置费用、计算�
 
 # 货柜成本计算
 
+首次操作 Linear 前，先读 [linear-usage](../linear-usage/SKILL.md)，按业务分支
+读取 chile-ops 的规则和货柜 SOP，再继续本流程。
+
 接收 `container-intake` 用 `sheets.py export` 从 Google 表格导出的标准 `data/config` xlsx，配置费用并运行现有成本引擎。
 先读工作簿及材料索引，确认必填项和计价单位；归属、整柜明细、采购价或费用范围未核清时，交回
 [container-intake](../container-intake/SKILL.md) 完成缺失部分。已有 Excel 不代表可以计算；
@@ -44,11 +47,13 @@ description: 对已整理并核对完成的标准货柜表配置费用、计算�
 `~/repo/chile-ops/sop/container.md`「父 Issue 是唯一入口」）：
 
 - 导出 xlsx 路径：`python3 ~/repo/chile-ops/scripts/container_context.py --container <柜号> --xlsx <路径>`，
-  脚本按柜号找父 Issue，只改这一字段。
+  脚本按柜号找父 Issue，挂到其 Links 并回读，只改本次指定的材料链接。
 - 导入创建的 Vin：K2046 是台账，重跑 `container_context.py --container <柜号>` 从 K2046 回填入库单、
   供应商与 Vin 校验，并按 SOP 04「查到」分支关联各采购订单父 Issue；单号不手抄。
 - 费用材料（海运费、内陆费、清关杂费等）的 checklist 状态写到「02｜费用与付款」子 Issue；
   入库完成勾在「补建 Vin」子 Issue。
+- 成本结果、工作链接和技术证据挂父 Issue 的 Links；子 Issue 正文和评论只写结论、
+  具体待办与简短依据。K2046 单据的指定双挂例外按业务 SOP 保留。
 
 只记录实际完成的状态；计算完成不能标记入库完成。
 

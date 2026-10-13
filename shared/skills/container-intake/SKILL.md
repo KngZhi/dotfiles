@@ -5,6 +5,9 @@ description: 在成本计算前按货柜整理微信附件、出货明细和费�
 
 # 货柜材料整理
 
+首次操作 Linear 前，先读 [linear-usage](../linear-usage/SKILL.md)，按业务分支
+读取 chile-ops 的规则和货柜 SOP，再继续本流程。
+
 把分散的货柜材料整理成可核对的标准输入。用于找附件、按柜归档、整理出货表、
 补材料和核对船期；已整理好的表需要计算成本时，才导出交给 `container-cost`。
 整理稿、成本结果和 K2046 已入库是三个不同阶段。
@@ -40,7 +43,7 @@ uv run scripts/sheets.py export <柜号> <目标.xlsx>            # 交接时才
 ```
 
 以柜号为表格名，只通过脚本新建；同一柜已有表格时继续用，不重复新建。新建后把链接记入材料索引，
-并写进柜父 Issue 的货柜关联块（见[记录位置](#记录位置)）：
+并挂到柜父 Issue 的 Links（见[记录位置](#记录位置)）：
 `python3 ~/repo/chile-ops/scripts/container_context.py --container <柜号> --sheet <链接>`。
 旧的本地整理稿用 `create --from` 迁移一次后不再修改 xlsx 版本。整理稿不放进正式成本输入目录；
 `export` 只在交接时执行。
@@ -51,10 +54,12 @@ uv run scripts/sheets.py export <柜号> <目标.xlsx>            # 交接时才
 `~/repo/chile-ops/sop/container.md`「父 Issue 是唯一入口」。本技能在补建 Vin 子 Issue 下运行时：
 
 - 工作链接（Google 整理表、导出 xlsx、材料索引路径）用 `container_context.py --container <柜号>
-  --sheet/--xlsx/--index` 写进父 Issue 顶部的货柜关联块；脚本按柜号找父 Issue，一次只改给出的字段。
+  --sheet/--xlsx/--index` 挂到父 Issue 的 Links；脚本按柜号找父 Issue，一次只改给出的字段，写后回读。
 - 柜号、Vin、供应商由脚本从 K2046 回填，不手抄。
 - 材料 checklist 的状态（整理中 / 可计算成本、缺什么、等谁）写到父 Issue 下的「补建 Vin」子 Issue：
   勾项、评论、Status；费用凭证相关的项写到「02｜费用与付款」子 Issue。
+- 子 Issue 正文和评论只写结论、具体待办与简短依据；链接、路径和技术证据放父 Issue 的 Links。
+  K2046 单据的指定双挂例外按业务 SOP 保留。
 
 ## 整理标准表
 
@@ -110,7 +115,7 @@ uv run scripts/sheets.py export <柜号> <目标.xlsx>            # 交接时才
 
 材料就绪且用户已要求继续计算时，才导出标准表：
 `uv run scripts/sheets.py export <柜号> '~/Library/CloudStorage/OneDrive-Personal/source_files/containers/(<材料日期>)<柜号>.xlsx'`，
-用 `container_context.py --container <柜号> --xlsx <路径>` 把路径写进货柜关联块，调用 `container-cost`。
+用 `container_context.py --container <柜号> --xlsx <路径>` 把导出材料挂到父 Issue 的 Links，调用 `container-cost`。
 导出前表格里不应残留红标；导出后表格改动不会自动同步，须重新导出。仅要求整理时，报告已就绪即可。
 已有授权不重复询问，资料缺失也不能当成已获答案。材料完成和入库完成是两件事：入库单（Vin）
 只由 K2046 记录、由脚本回填。

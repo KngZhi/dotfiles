@@ -19,6 +19,7 @@ workspace conventions. A replaced file hides every later upstream change to it,
 and past rewrites silently dropped outputs such as the architecture HTML report.
 
 Current overrides:
-- Matt Pocock skills: `LOCAL.md` for to-spec and to-tickets (KngZhi GitHub issues).
+- Matt Pocock skills: `LOCAL.md` for to-spec, to-tickets, and
+  setup-matt-pocock-skills (KngZhi Linear routing and native JUN triage fields).
 - lencx skills: coding-protocol, replaced.
 - Yevanchen/reclaim-code-entropy: repository simplification, replaced.

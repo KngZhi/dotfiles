@@ -5,6 +5,10 @@ description: Create or revise Linear engineering issues with a short human summa
 
 # Create or Revise a Linear Issue
 
+Before the first Linear operation, read
+[linear-usage](../linear-usage/SKILL.md) and its workspace reference. Return here
+for engineering issue authoring and planning; business operations use their SOP.
+
 Write an Issue a person can understand before reaching implementation details.
 Use two clearly separated parts: a short human summary first, then the Agent's
 execution context. Create and maintain the Issue in Linear; link GitHub code,
@@ -13,29 +17,19 @@ pull requests and CI as supporting material.
 ## 1. Resolve the Linear destination and current facts
 
 Use the named repository or the current workspace's `origin`. Follow the
-repository and shared agent instructions, including `docs/agents/issue-tracker.md`
-when present, to select the Linear project. For KngZhi engineering work, use
-workspace **Claw3PO**, team **JUN** (key `SK`), and the project for that repository
-(see the shared instructions for the project list). Workspace SAOKO, team
-**SAOKO**, holds business work and is a different destination. The old team
-Enginer (`ENG`) is retired; `ENG-<n>` identifiers are history.
-
-The Linear MCP connector and `~/.local/bin/linear` reach SAOKO only. Reach
-Claw3PO through its GraphQL API with the key `op://DEV/Linear API/credential`
-(environment variable only). Before cancelling an Issue, move or unlink its
-linked GitHub PRs: cancelling closes them.
-
-Use the Linear connector to verify the workspace, team and project before
-writing. Resolve current workflow states, labels and assignment options from
-Linear and the shared instructions.
+repository instructions, including `docs/agents/issue-tracker.md` when present,
+to select the Linear project. Use the channel selected by `linear-usage` to
+verify workspace, team, project, workflow states, labels, and assignment options
+before writing. Its workspace reference owns the KngZhi destination, JUN role
+mapping, GitHub reference syntax, and cancellation side effect.
 
 - **Existing Issue:** read its full current description, metadata and relevant
   links. Update that Issue in place. Verify live PR status before describing its
   progress; a previous report may be stale.
 - **New Issue:** search the repository's Linear project for the same outcome
   and reuse an obvious duplicate unless a separate Issue was requested.
-- **Links:** use Linear issue identifiers for related work. For GitHub references,
-  use `GH-123` or a full URL; bare `#123` can link to another repository.
+- **Links:** use Linear issue identifiers for related work and apply the common
+  GitHub reference syntax.
 
 Ask only when an unresolved fact changes the target or scope. Prepare a draft
 for approval only when the user requests that step.
@@ -107,8 +101,9 @@ or guidance on maintenance Issues, investigation context and verification.
 
 ## 3. Save and read back
 
-Use structured Linear connector arguments, preserving real newlines. For edits,
-pass the existing Issue ID and change only the requested fields.
+Use structured arguments through the selected channel, preserving real newlines
+(an API JSON body or CLI body file when appropriate). For edits, pass the existing
+Issue ID and change only the requested fields.
 When rewriting for clarity, preserve material requirements and uncertainty,
 and keep status, assignee, dependencies and other metadata unless the requested
 change calls for updating them.
@@ -123,10 +118,9 @@ After writing, fetch the saved Issue and verify:
 - Workspace/team/project and requested fields are correct; unrelated metadata
   remains intact.
 
-Report the Issue link and actual result. If a write succeeded but a later step
-failed, retry only the unfinished step using the existing Issue. A create that
-returns an error (for example a 502) may still have succeeded: search the project
-for the title before retrying, so a retry does not create a duplicate.
+Report the Issue link and actual result. Apply `linear-usage`'s uncertain-write
+procedure when a response is lost; continue only unfinished steps using the
+existing Issue once the result is established.
 
 ## 4. Several Issues for one plan
 
@@ -145,7 +139,7 @@ without anyone reading the bodies.
   automatically: when an Issue closes, move each Issue it blocked to `Todo` once
   its last blocker is done, and update the milestone table.
 - **Execution order.** Set each Issue's manual `sortOrder` in execution order
-  (the connector cannot; use the GraphQL API per the shared instructions), and
+  (use the GraphQL API if the selected tool cannot set it), and
   number titles when the order matters (`L1`, `L2`, …).
 - **Hidden conflicts.** Dependencies are not the only reason work can't run in
   parallel. Note in the plan when independent Issues edit the same files, or
