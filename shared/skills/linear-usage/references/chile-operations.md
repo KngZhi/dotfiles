@@ -18,7 +18,7 @@ The repository's operator-text rule governs: 结论 → 要你做的事 → 依�
 business Chinese with exact objects, dated quantities, units, and currencies.
 Place work links and technical evidence in the parent issue's Links attachments;
 keep commands, paths, skill names, and URLs out of business bodies and comments.
-Preserve the SOP's explicit K2046 document-link exceptions, including required
+Preserve all SOP-defined document-link exceptions, including required
 parent and designated-stage-child placements; this default does not remove them.
 
 The SOP owns stages, completion gates, deadlines, and the authoritative place
