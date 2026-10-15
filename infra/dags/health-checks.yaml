@@ -1,8 +1,8 @@
-description: 每 5 分钟探一次：Air 在 Tailscale 上可达、K2046 MCP（Fly）有响应、本机 WhatsApp bridge 已连接、本机 order-printer local-server 健康；某一项挂了或恢复时推一次 Telegram
+description: 每 5 分钟探一次：Air 在 Tailscale 上可达、K2046 MCP（Fly）有响应、本机 WhatsApp bridge 已连接、本机 order-printer local-server 健康；某一项挂了或恢复时推一次 Telegram 和 Discord 健康频道
 schedule: "*/5 * * * *"
 hist_retention_days: 14
 # 各项互不依赖，并行跑：一项挂了不挡另一项。各自经 dagu-probe（roles/dagu/files）执行，
-# 结果变化才推 Telegram，持续故障不重复推。
+# 结果变化才推 Telegram 和 Discord 健康频道（dagu-probe 设 NOTIFY_CHANNEL=health），持续故障不重复推。
 steps:
   - name: air-reachable
     run: $HOME/.local/bin/dagu-probe air-reachable /usr/local/bin/tailscale ping --c 2 --timeout 5s 100.70.111.73

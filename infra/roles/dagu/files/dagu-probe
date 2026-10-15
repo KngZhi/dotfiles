@@ -1,6 +1,6 @@
 #!/bin/bash
-# Health probe wrapper for Dagu steps: run one check, and push Telegram only when
-# its result changes (down, then recovered).
+# Health probe wrapper for Dagu steps: run one check, and push an alert (Telegram, and the
+# Discord 健康 channel) only when its result changes (down, then recovered).
 #
 # Usage: dagu-probe <name> <command> [args...]
 #
@@ -10,7 +10,9 @@
 # per DAG: a check that stays down must not hide another one going down later.
 #
 # Delivery is chile-mono's ops/cron/notify.sh, the channel the cron jobs already
-# use. It is best-effort and never fails. The exit status is always the
+# use. It is best-effort and never fails. Probes ask it for NOTIFY_CHANNEL=health, the
+# Discord channel whose webhook (DISCORD_WEBHOOK_HEALTH) notify-bot.yml writes to the cron
+# env file; a NOTIFY_CHANNEL set by the caller wins. The exit status is always the
 # command's, so the Dagu step shows the real result.
 
 set -o pipefail
@@ -31,6 +33,9 @@ mkdir -p "$STATE_DIR"
 
 "$@" 2>&1 | tee "$LOG_FILE"
 EXIT_CODE=${PIPESTATUS[0]}
+
+# Exported only now, so the probed command above did not see it.
+export NOTIFY_CHANNEL="${NOTIFY_CHANNEL:-health}"
 
 if [ "$EXIT_CODE" -ne 0 ] && [ ! -e "$DOWN_FLAG" ]; then
   date '+%Y-%m-%d %H:%M %z' > "$DOWN_FLAG"
