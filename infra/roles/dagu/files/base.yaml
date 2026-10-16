@@ -3,12 +3,22 @@
 #
 # Failure notification is NOT here: Dagu's own notifications handle it (web UI,
 # Notifications: one Telegram channel, and a global rule that sends every failed
-# run to it). That configuration lives in Dagu's data directory
+# run to it; also a Slack-type channel "discord-errors" that posts to the Discord
+# 报错 channel, with a second route to it, both kept by notify-bot.yml from
+# 1Password). That configuration lives in Dagu's data directory
 # (~/Library/Application Support/dagu/data/notifications), not in this repository,
-# so a rebuilt server needs it set up again. A new DAG is covered with nothing in
-# its file. The DAGs that push for themselves have notifications switched off in
-# their own settings (DAG page, Notifications), or one failure would push twice:
-# chile-* (chile-mono's run.sh) and health-checks (dagu-probe: only on a change).
+# so a rebuilt server needs the Telegram channel and its rule set up again by hand;
+# `ansible-playbook notify-bot.yml` restores the Discord ones. A new DAG is covered
+# with nothing in its file. The DAGs that push for themselves have notifications
+# switched off in their own settings (DAG page, Notifications), or one failure
+# would push twice: chile-* (chile-mono's run.sh) and health-checks (dagu-probe:
+# only on a change).
+#
+# Known limit: when a delivery fails on a connection error, Dagu v2.19 logs the full
+# destination URL (the Discord webhook, and the Telegram bot token for that channel) to
+# ~/Library/Logs/dagu. That directory is owner-only (roles/dagu); keep those logs out of
+# pastes and backups. A leaked webhook only lets someone post to its channel: delete it in
+# Discord, update the 1Password field and rerun notify-bot.yml.
 
 # The values Dagu 2.19 wrote when it first created this file.
 type: graph                 # steps run in parallel unless they declare depends

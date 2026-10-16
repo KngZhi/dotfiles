@@ -14,6 +14,14 @@
   changed_when: false
   failed_when: false
 
+# Dagu v2.19 writes the full webhook URL (or bot token) into its log when a delivery fails on
+# a connection error, so only the owner reads the logs.
+- name: Dagu logs readable by the owner only
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/Library/Logs/dagu"
+    state: directory
+    mode: "0700"
+
 - name: Fetch and install the dagu binary (prebuilt darwin/amd64, checksum pinned)
   when: dagu_have.rc != 0 or dagu_version not in dagu_have.stdout
   block:
@@ -42,7 +50,7 @@
         path: "{{ dagu_tmp.path }}"
         state: absent
 
-- name: Probe wrapper for health-check steps (Telegram only when a result changes)
+- name: Probe wrapper for health-check steps (Telegram and Discord only when a result changes)
   ansible.builtin.copy:
     src: dagu-probe
     dest: "{{ local_bin }}/dagu-probe"

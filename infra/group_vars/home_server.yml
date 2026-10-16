@@ -100,3 +100,26 @@ notify_bot_fly_apps:
   - { app: chile-mono-shopify-k2046-sync, stage: true }
 notify_bot_github_repos:
   - KngZhi/chile-mono        # shopify-sync.yml's failure step
+
+# Discord server "SAOKO Ops": the same ops alerts in four private channels, one webhook each.
+# A webhook URL is a credential (anyone holding it can post), so 1Password holds the only copy,
+# one item with a field per channel; notify-bot.yml writes every URL it can read to the env
+# files below. chile-mono's ops/cron/notify.sh reads the keys from its environment or from that
+# env file (line by line, never sourced), picks the channel by job name or NOTIFY_CHANNEL, and
+# skips Discord for a channel whose key is absent, so a field may stay empty until its channel
+# is ready. Telegram stays as it is.
+discord_webhooks_op_item: "op://DEV/Discord Webhooks SAOKO Ops"
+discord_webhook_channels:       # 1Password field -> env key
+  - { field: deploy, key: DISCORD_WEBHOOK_DEPLOY }   # 部署
+  - { field: errors, key: DISCORD_WEBHOOK_ERRORS }   # 报错
+  - { field: health, key: DISCORD_WEBHOOK_HEALTH }   # 健康
+  - { field: daily, key: DISCORD_WEBHOOK_DAILY }     # 日报
+discord_webhook_env_files:
+  - "{{ ansible_env.HOME }}/.local/share/chile-mono-cron/.env"   # notify.sh, through run.sh and dagu-probe
+# Dagu's own failed-run notices also go to 报错. Dagu has no Discord channel type, but Discord
+# takes Slack-format payloads at the webhook URL + /slack, so notify-bot.yml keeps a Slack-type
+# channel of this name and a route to it on the global rules (Telegram's route is left alone).
+# It skips this when the errors field is empty. Events as Dagu names them; add dag.run.aborted
+# or dag.run.rejected here to widen it.
+dagu_discord_channel_name: discord-errors
+dagu_discord_events: [dag.run.failed]

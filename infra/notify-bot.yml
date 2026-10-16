@@ -1,10 +1,17 @@
 # One Telegram bot for ops alerts. Its token has a single source, 1Password
 # (notify_bot_op_ref in group_vars/home_server.yml); this playbook copies it to every
 # consumer listed there. To change the bot: edit the 1Password item, then
-#   ansible-playbook notify-bot.yml                 home server env files and Dagu's channel
+#   ansible-playbook notify-bot.yml                 home server env files and Dagu's channel, then the Discord webhooks
 #   ansible-playbook notify-bot.yml --tags cloud    Fly and GitHub secrets (restarts the Fly apps that are not staged)
+#   ansible-playbook notify-bot.yml --tags discord  only the Discord webhooks (the second play)
 # Only the token is copied. Each consumer keeps its own chat id, and the bot must already
 # be able to post there (a private chat it was started in, or a group it was added to).
+#
+# The second play does the same for the Discord server "SAOKO Ops": one webhook per channel,
+# all fields of one 1Password item (discord_webhooks_op_item), copied to the env files in
+# discord_webhook_env_files and to Dagu's failed-run rules. It is a play of its own because a
+# missing field is normal there (a channel not set up yet is skipped), where a missing Telegram
+# token stops the run. It adds Discord next to Telegram and changes nothing about Telegram.
 - name: Alert bot token from 1Password to its consumers
   hosts: mbp-intel
   gather_facts: true
@@ -77,3 +84,156 @@
       no_log: true
       delegate_to: localhost
       tags: [never, cloud]
+
+- name: Discord webhooks from 1Password to the cron env file and Dagu
+  hosts: mbp-intel
+  gather_facts: true
+  tags: discord
+  tasks:
+    # One `op read` per field, never failing the play: a field or the whole item may not exist
+    # yet, and `op` may be signed out. Nothing from the result is printed (no_log).
+    - name: Read the webhooks on the control node
+      ansible.builtin.command:
+        argv: [op, read, "{{ discord_webhooks_op_item }}/{{ item.field }}"]
+      loop: "{{ discord_webhook_channels }}"
+      loop_control:
+        label: "{{ item.field }}"
+      register: discord_webhook_reads
+      failed_when: false
+      changed_when: false
+      no_log: true
+      delegate_to: localhost
+
+    # What came back as an https URL; anything else (an empty or mistyped field) counts as missing.
+    - name: Keep the channels that have a URL
+      ansible.builtin.set_fact:
+        discord_webhooks_found: >-
+          {{ discord_webhook_reads.results
+             | selectattr('rc', 'defined') | selectattr('stdout', 'defined')
+             | selectattr('rc', 'equalto', 0)
+             | selectattr('stdout', 'match', '\s*https://')
+             | list }}
+      no_log: true
+
+    - name: Webhooks in the server's env files
+      ansible.builtin.lineinfile:
+        path: "{{ item.1 }}"
+        regexp: "^{{ item.0.item.key }}="
+        # notify.sh posts {"content": ...}; the /slack form is only for Dagu, so never store it here.
+        line: "{{ item.0.item.key }}={{ item.0.stdout | trim | regex_replace('/+$', '') | regex_replace('/slack$', '') }}"
+        create: false
+      loop: "{{ discord_webhooks_found | product(discord_webhook_env_files) | list }}"
+      loop_control:
+        label: "{{ item.1 }}"
+      no_log: true
+      diff: false
+
+    # Channel names only.
+    - name: Which Discord channels were written and which skipped
+      ansible.builtin.debug:
+        msg: >-
+          Discord webhooks written: {{ written | join(', ') or 'none' }}
+          (to {{ discord_webhook_env_files | length }} env file(s)).
+          Skipped, no URL in 1Password ({{ discord_webhooks_op_item }}): {{ skipped | join(', ') or 'none' }}.
+      vars:
+        written: "{{ discord_webhooks_found | map(attribute='item.field') | list }}"
+        skipped: "{{ discord_webhook_channels | map(attribute='field') | reject('in', written) | list }}"
+
+    # Dagu's own failed-run notices, the same ones its Telegram channel gets. Dagu v2.19.0 API
+    # (api/v1/api.yaml; the web UI's Notifications page calls the same routes): a Slack-type
+    # channel takes {webhookUrl}; the global rules are /notification-routes/global, and a PUT
+    # replaces the whole set, so the existing routes are sent back unchanged with ours added.
+    - name: Dagu's failed-run notices to the Discord errors channel
+      when: discord_webhooks_found | selectattr('item.field', 'equalto', 'errors') | list | length > 0
+      block:
+        # The URL for Dagu is the webhook plus /slack.
+        - name: The errors webhook in Slack format
+          ansible.builtin.set_fact:
+            dagu_discord_url: >-
+              {%- set url = (discord_webhooks_found | selectattr('item.field', 'equalto', 'errors') | map(attribute='stdout') | first | trim) | regex_replace('/+$', '') -%}
+              {{ url if url.endswith('/slack') else url ~ '/slack' }}
+          no_log: true
+
+        - name: Dagu's channels, to find the Discord one
+          ansible.builtin.uri:
+            url: "http://{{ dagu_bind_host }}:{{ dagu_port }}/api/v1/notification-channels"
+            use_netrc: false
+          register: dagu_channels_now
+          delegate_to: localhost
+
+        - name: Our channel, if Dagu has it already
+          ansible.builtin.set_fact:
+            dagu_discord_channel: >-
+              {{ dagu_channels_now.json.channels | selectattr('name', 'equalto', dagu_discord_channel_name)
+                 | selectattr('type', 'equalto', 'slack') | first | default({}) }}
+
+        - name: Dagu's Discord errors channel, created
+          ansible.builtin.uri:
+            url: "http://{{ dagu_bind_host }}:{{ dagu_port }}/api/v1/notification-channels"
+            method: POST
+            body_format: json
+            body:
+              name: "{{ dagu_discord_channel_name }}"
+              type: slack
+              enabled: true
+              slack:
+                webhookUrl: "{{ dagu_discord_url }}"
+            status_code: 201
+            use_netrc: false
+          register: dagu_discord_created
+          when: dagu_discord_channel | length == 0
+          changed_when: true
+          no_log: true
+          delegate_to: localhost
+
+        # Dagu never returns the stored URL, so there is nothing to compare: always written
+        # (this also carries a rotated webhook). A PUT replaces the channel, so enabled and the
+        # message template are sent back as they are.
+        - name: Dagu's Discord errors channel, URL refreshed
+          ansible.builtin.uri:
+            url: "http://{{ dagu_bind_host }}:{{ dagu_port }}/api/v1/notification-channels/{{ dagu_discord_channel.id }}"
+            method: PUT
+            body_format: json
+            body:
+              name: "{{ dagu_discord_channel.name }}"
+              type: slack
+              enabled: "{{ dagu_discord_channel.enabled }}"
+              slack: >-
+                {{ {'webhookUrl': dagu_discord_url}
+                   | combine({'messageTemplate': dagu_discord_channel.slack.messageTemplate}
+                             if dagu_discord_channel.slack.messageTemplate | default('') else {}) }}
+            use_netrc: false
+          when: dagu_discord_channel | length > 0
+          changed_when: false
+          no_log: true
+          delegate_to: localhost
+
+        - name: Dagu's global notification routes
+          ansible.builtin.uri:
+            url: "http://{{ dagu_bind_host }}:{{ dagu_port }}/api/v1/notification-routes/global"
+            use_netrc: false
+          register: dagu_routes
+          delegate_to: localhost
+
+        # Adds the route, or brings an existing route's events in line with dagu_discord_events
+        # (keeping its id and enabled flag). Every other route is sent back unchanged.
+        - name: Route to the Discord errors channel, added or updated next to the existing ones
+          ansible.builtin.uri:
+            url: "http://{{ dagu_bind_host }}:{{ dagu_port }}/api/v1/notification-routes/global"
+            method: PUT
+            body_format: json
+            body:
+              enabled: "{{ dagu_routes.json.enabled }}"
+              inheritGlobal: "{{ dagu_routes.json.inheritGlobal }}"
+              routes: >-
+                {{ (existing | rejectattr('channelId', 'equalto', channel_id) | list)
+                   + [ (mine[0] | combine({'events': dagu_discord_events})) if mine | length > 0
+                       else {'channelId': channel_id, 'enabled': true, 'events': dagu_discord_events} ] }}
+            use_netrc: false
+          vars:
+            channel_id: "{{ dagu_discord_channel.id if dagu_discord_channel | length > 0 else dagu_discord_created.json.id }}"
+            existing: "{{ dagu_routes.json.routes | default([], true) }}"
+            mine: "{{ existing | selectattr('channelId', 'equalto', channel_id) | list }}"
+          when: (mine | length == 0) or ((mine[0].events | default([], true) | sort) != (dagu_discord_events | sort))
+          changed_when: true
+          delegate_to: localhost
