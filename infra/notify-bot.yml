@@ -119,7 +119,8 @@
       ansible.builtin.lineinfile:
         path: "{{ item.1 }}"
         regexp: "^{{ item.0.item.key }}="
-        line: "{{ item.0.item.key }}={{ item.0.stdout | trim }}"
+        # notify.sh posts {"content": ...}; the /slack form is only for Dagu, so never store it here.
+        line: "{{ item.0.item.key }}={{ item.0.stdout | trim | regex_replace('/+$', '') | regex_replace('/slack$', '') }}"
         create: false
       loop: "{{ discord_webhooks_found | product(discord_webhook_env_files) | list }}"
       loop_control:
@@ -214,7 +215,9 @@
           register: dagu_routes
           delegate_to: localhost
 
-        - name: Route to the Discord errors channel, added next to the existing ones
+        # Adds the route, or brings an existing route's events in line with dagu_discord_events
+        # (keeping its id and enabled flag). Every other route is sent back unchanged.
+        - name: Route to the Discord errors channel, added or updated next to the existing ones
           ansible.builtin.uri:
             url: "http://{{ dagu_bind_host }}:{{ dagu_port }}/api/v1/notification-routes/global"
             method: PUT
@@ -223,11 +226,14 @@
               enabled: "{{ dagu_routes.json.enabled }}"
               inheritGlobal: "{{ dagu_routes.json.inheritGlobal }}"
               routes: >-
-                {{ (dagu_routes.json.routes | default([], true))
-                   + [{'channelId': channel_id, 'enabled': true, 'events': dagu_discord_events}] }}
+                {{ (existing | rejectattr('channelId', 'equalto', channel_id) | list)
+                   + [ (mine[0] | combine({'events': dagu_discord_events})) if mine | length > 0
+                       else {'channelId': channel_id, 'enabled': true, 'events': dagu_discord_events} ] }}
             use_netrc: false
           vars:
             channel_id: "{{ dagu_discord_channel.id if dagu_discord_channel | length > 0 else dagu_discord_created.json.id }}"
-          when: channel_id not in (dagu_routes.json.routes | default([], true) | map(attribute='channelId') | list)
+            existing: "{{ dagu_routes.json.routes | default([], true) }}"
+            mine: "{{ existing | selectattr('channelId', 'equalto', channel_id) | list }}"
+          when: (mine | length == 0) or ((mine[0].events | default([], true) | sort) != (dagu_discord_events | sort))
           changed_when: true
           delegate_to: localhost

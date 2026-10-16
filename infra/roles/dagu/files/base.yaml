@@ -13,6 +13,12 @@
 # switched off in their own settings (DAG page, Notifications), or one failure
 # would push twice: chile-* (chile-mono's run.sh) and health-checks (dagu-probe:
 # only on a change).
+#
+# Known limit: when a delivery fails on a connection error, Dagu v2.19 logs the full
+# destination URL (the Discord webhook, and the Telegram bot token for that channel) to
+# ~/Library/Logs/dagu. That directory is owner-only (roles/dagu); keep those logs out of
+# pastes and backups. A leaked webhook only lets someone post to its channel: delete it in
+# Discord, update the 1Password field and rerun notify-bot.yml.
 
 # The values Dagu 2.19 wrote when it first created this file.
 type: graph                 # steps run in parallel unless they declare depends
