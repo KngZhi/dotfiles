@@ -3,17 +3,39 @@
  */
 import { homedir } from 'os';
 import { join, dirname } from 'path';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'fs';
 
 // 路径配置
-const containersDir = process.env.CONTAINER_COST_CONTAINERS_DIR
-  || join(homedir(), 'Library/CloudStorage/OneDrive-Personal/source_files/containers');
+const CLOUD_STORAGE = join(homedir(), 'Library/CloudStorage');
+
+/**
+ * OneDrive 同步根目录名随账号语言和机器不同（OneDrive-Personal、OneDrive-个人），
+ * 按实际存在的目录解析；找不到就报错，不凭名字新建目录。
+ */
+export function resolveOneDriveDir(subdir: string, cloudStorage = CLOUD_STORAGE): string {
+  const roots = existsSync(cloudStorage)
+    ? readdirSync(cloudStorage).filter(name => name.startsWith('OneDrive')).sort()
+    : [];
+  const found = roots.map(name => join(cloudStorage, name, subdir)).find(dir => existsSync(dir));
+  if (!found) {
+    throw new Error(`在 ${cloudStorage}/OneDrive* 下找不到 ${subdir}；确认 OneDrive 已同步，或设置对应环境变量`);
+  }
+  return found;
+}
 
 export const PATHS = {
   // 容器文件目录 (OneDrive)
-  containers: containersDir,
+  get containers(): string {
+    return process.env.CONTAINER_COST_CONTAINERS_DIR || resolveOneDriveDir('source_files/containers');
+  },
   // 生成文件目录（技能自身管理，不依赖业务代码仓库）
-  generated: process.env.CONTAINER_COST_GENERATED_DIR || join(containersDir, 'generated'),
+  get generated(): string {
+    return process.env.CONTAINER_COST_GENERATED_DIR || join(PATHS.containers, 'generated');
+  },
+  // 产品图片目录
+  get productImages(): string {
+    return process.env.CONTAINER_COST_IMAGES_DIR || resolveOneDriveDir('source_files/产品图片');
+  },
   // 状态文件
   state: join(homedir(), '.local/state/container-cost/state.json'),
 };

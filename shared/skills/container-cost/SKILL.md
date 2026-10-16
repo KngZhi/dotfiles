@@ -40,7 +40,7 @@ description: 对已整理并核对完成的标准货柜表配置费用、计算�
 
 ## 共同约束
 
-正式输入放 `~/Library/CloudStorage/OneDrive-Personal/source_files/containers`，
+正式输入放 `~/Library/CloudStorage/OneDrive*/source_files/containers`（目录名随机器不同，代码按实际存在的目录解析，也可用 `CONTAINER_COST_CONTAINERS_DIR` 指定），
 成本结果放其 `generated/`。未完成的整理稿留在 `00_待整理货柜`，不放入正式输入目录。
 区分真实金额、业务默认值、暂估和缺失字段，预计日期不得冒充实际到柜日期。
 

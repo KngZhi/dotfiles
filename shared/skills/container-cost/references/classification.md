@@ -1,7 +1,7 @@
 # 分类、供应商和大包装数
 
 从成本文件中找出缺失项，按供应商和货号匹配产品图片。图片通常位于
-`~/Library/CloudStorage/OneDrive-Personal/source_files/产品图片/<货柜目录>/`。
+`~/Library/CloudStorage/OneDrive*/source_files/产品图片/<货柜目录>/`（可用 `CONTAINER_COST_IMAGES_DIR` 指定）。
 用实际图片和现有 K2046 分类判断，不仅凭文件名猜测。
 
 ```bash

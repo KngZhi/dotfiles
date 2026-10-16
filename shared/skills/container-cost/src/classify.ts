@@ -12,11 +12,6 @@ import { existsSync, readdirSync, writeFileSync, readFileSync } from 'fs';
 import { join, basename } from 'path';
 import { PATHS } from './config.js';
 
-// 图片目录（容器图片整理）
-const IMAGE_BASE = join(
-  process.env.HOME || '',
-  'Library/CloudStorage/OneDrive-Personal/source_files/产品图片'
-);
 
 interface MissingProduct {
   row: number;
@@ -59,8 +54,13 @@ function findProductImage(productNumber: string, containerFolder?: string): stri
 
   // 如果指定了容器文件夹
   if (containerFolder) {
-    const containerPath = join(IMAGE_BASE, containerFolder);
-    if (existsSync(containerPath)) {
+    let containerPath: string | undefined;
+    try {
+      containerPath = join(PATHS.productImages, containerFolder);
+    } catch {
+      // 本机没有产品图片目录：跳过图片查找
+    }
+    if (containerPath && existsSync(containerPath)) {
       // 搜索子文件夹
       try {
         const subDirs = readdirSync(containerPath, { withFileTypes: true })
