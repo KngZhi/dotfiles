@@ -68,8 +68,10 @@ export function getApiConfig(): ApiConfig {
       || '',
     authToken: process.env.X_AUTH_TOKEN
       || process.env.K2046_X_AUTH_TOKEN
+      || process.env.K2046_AUTH_TOKEN
       || env.X_AUTH_TOKEN
       || env.K2046_X_AUTH_TOKEN
+      || env.K2046_AUTH_TOKEN
       || '',
     cookie: process.env.COOKIE
       || process.env.K2046_COOKIE

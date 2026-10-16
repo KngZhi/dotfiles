@@ -6,7 +6,8 @@ NODE_AUTH_TOKEN，使用共享凭据约定提供，不写入 .npmrc 或仓库。
 
 API 配置优先级：环境变量，其次 `~/.config/container-cost/.env`，
 最后是旧环境的只读兼容回退 `~/repo/chile-mono/.env`。
-配置字段是 API_BASE_URL、X_AUTH_TOKEN、COOKIE。只检查必要字段是否存在，
+配置字段是 API_BASE_URL、X_AUTH_TOKEN（也认 K2046_X_AUTH_TOKEN 与 chile-mono 的
+K2046_AUTH_TOKEN）、COOKIE。只检查必要字段是否存在，
 不要打印凭据内容。
 
 运行状态位于 `~/.local/state/container-cost/state.json`。
