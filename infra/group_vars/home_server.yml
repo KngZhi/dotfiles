@@ -101,7 +101,7 @@ notify_bot_fly_apps:
 notify_bot_github_repos:
   - KngZhi/chile-mono        # shopify-sync.yml's failure step
 
-# Discord server "SAOKO Ops": the same ops alerts in four private channels, one webhook each.
+# Discord server "SAOKO Ops": the same ops alerts in five private channels, one webhook each.
 # A webhook URL is a credential (anyone holding it can post), so 1Password holds the only copy,
 # one item with a field per channel; notify-bot.yml writes every URL it can read to the
 # destinations below, each with only the keys listed for it. A field that is empty is skipped
@@ -112,6 +112,7 @@ discord_webhooks_op_item: "op://DEV/Discord Webhooks SAOKO Ops"
 discord_webhook_channels:       # 1Password field -> env key
   - { field: deploy, key: DISCORD_WEBHOOK_DEPLOY }   # 部署
   - { field: errors, key: DISCORD_WEBHOOK_ERRORS }   # 报错
+  - { field: todo, key: DISCORD_WEBHOOK_TODO }       # 待办
   - { field: health, key: DISCORD_WEBHOOK_HEALTH }   # 健康
   - { field: daily, key: DISCORD_WEBHOOK_DAILY }     # 日报
 # Home server env files, read line by line (never sourced) by their senders. create is false on
@@ -119,16 +120,22 @@ discord_webhook_channels:       # 1Password field -> env key
 # and the play should fail loudly. lineinfile keeps a file's mode (saoko-whatsapp's is 0600).
 discord_webhook_env_files:
   - path: "{{ ansible_env.HOME }}/.local/share/chile-mono-cron/.env"   # notify.sh, through run.sh and dagu-probe
-    env_keys: [DISCORD_WEBHOOK_DEPLOY, DISCORD_WEBHOOK_ERRORS, DISCORD_WEBHOOK_HEALTH, DISCORD_WEBHOOK_DAILY]
+    env_keys: [DISCORD_WEBHOOK_DEPLOY, DISCORD_WEBHOOK_ERRORS, DISCORD_WEBHOOK_TODO, DISCORD_WEBHOOK_HEALTH, DISCORD_WEBHOOK_DAILY]
+  # The live-e2e job of e2e-k2046.yml: CHILE_MONO_E2E_ENV_FILE (a repository variable) is this
+  # file, and the job's failure step runs ops/cron/notify.sh with CRON_NOTIFY_ENV_FILE set to it.
+  # notify.sh routes k2046-live-e2e to errors, so only that key. Deploy notices read the cron
+  # root .env above (deploy-cron.yml).
+  - path: "{{ ansible_env.HOME }}/repo/chile-mono/.env"
+    env_keys: [DISCORD_WEBHOOK_ERRORS]
   - path: "{{ ansible_env.HOME }}/.config/saoko-whatsapp/env"   # watchdog and watchdog/scripts/notify.sh
-    env_keys: [DISCORD_WEBHOOK_DEPLOY, DISCORD_WEBHOOK_ERRORS, DISCORD_WEBHOOK_HEALTH, DISCORD_WEBHOOK_DAILY]
+    env_keys: [DISCORD_WEBHOOK_DEPLOY, DISCORD_WEBHOOK_ERRORS, DISCORD_WEBHOOK_TODO, DISCORD_WEBHOOK_HEALTH, DISCORD_WEBHOOK_DAILY]
   - path: "{{ ansible_env.HOME }}/services/order-printer-local-server/shared/.env"
     env_keys: [DISCORD_WEBHOOK_DEPLOY, DISCORD_WEBHOOK_ERRORS, DISCORD_WEBHOOK_HEALTH]
 # Cloud destinations (--tags cloud). Same rule as the Telegram token: a Fly app that is not
 # staged restarts on import; chile-mono-shopify-k2046-sync is staged and reads them at its
 # next start.
 discord_webhook_fly_apps:
-  - { app: chile-mono-shopify-order-sync, env_keys: [DISCORD_WEBHOOK_ERRORS, DISCORD_WEBHOOK_DAILY] }
+  - { app: chile-mono-shopify-order-sync, env_keys: [DISCORD_WEBHOOK_ERRORS, DISCORD_WEBHOOK_TODO, DISCORD_WEBHOOK_DAILY] }
   - { app: chile-mono-shopify-k2046-sync, stage: true, env_keys: [DISCORD_WEBHOOK_ERRORS, DISCORD_WEBHOOK_DAILY] }
 discord_webhook_github_repos:
   - { repo: KngZhi/chile-mono, env_keys: [DISCORD_WEBHOOK_ERRORS, DISCORD_WEBHOOK_DEPLOY] }   # shopify-sync.yml, shopify-sync-tests.yml

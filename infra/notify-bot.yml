@@ -4,7 +4,8 @@
 #   ansible-playbook notify-bot.yml                 home server env files and Dagu's channel, then the Discord webhooks (second play)
 #   ansible-playbook notify-bot.yml --tags cloud    Fly and GitHub secrets, Telegram token and Discord webhooks
 #                                                   (restarts the Fly apps that are not staged)
-#   ansible-playbook notify-bot.yml --tags discord  the Discord webhooks on the server and in Dagu (second play)
+#   ansible-playbook notify-bot.yml --tags discord  the Discord webhooks on the server and in Dagu (second play only;
+#                                                   it never reads the Telegram token)
 # Only the token is copied. Each consumer keeps its own chat id, and the bot must already
 # be able to post there (a private chat it was started in, or a group it was added to).
 #
@@ -26,7 +27,7 @@
       ansible.builtin.set_fact:
         notify_bot_token: "{{ lookup('ansible.builtin.pipe', 'op read ' ~ (notify_bot_op_ref | quote)) }}"
       no_log: true
-      tags: always
+      tags: cloud   # plain runs and --tags cloud read it; --tags discord must not depend on Telegram
 
     - name: Token in the server's env files
       ansible.builtin.lineinfile:
@@ -234,6 +235,7 @@
             url: "http://{{ dagu_bind_host }}:{{ dagu_port }}/api/v1/notification-channels"
             use_netrc: false
           register: dagu_channels_now
+          no_log: true
           delegate_to: localhost
 
         - name: Our channel, if Dagu has it already
@@ -253,7 +255,7 @@
               enabled: true
               slack:
                 webhookUrl: "{{ dagu_discord_url }}"
-            status_code: 201
+            status_code: [200, 201]
             use_netrc: false
           register: dagu_discord_created
           when: dagu_discord_channel | length == 0
@@ -288,10 +290,39 @@
             url: "http://{{ dagu_bind_host }}:{{ dagu_port }}/api/v1/notification-routes/global"
             use_netrc: false
           register: dagu_routes
+          no_log: true
           delegate_to: localhost
 
-        # Adds the route, or brings an existing route's events in line with dagu_discord_events
-        # (keeping its id and enabled flag). Every other route is sent back unchanged.
+        # The managed route is the one whose channel is ours; channelId is compared as a string
+        # (the JSON may carry a number on one side). Two or more routes for our channel mean
+        # the ownership is unclear, so the play stops before it writes anything.
+        - name: Our route, if Dagu has it already
+          ansible.builtin.set_fact:
+            dagu_discord_channel_id: "{{ (dagu_discord_channel.id if dagu_discord_channel | length > 0 else dagu_discord_created.json.id) | string }}"
+            dagu_discord_routes_existing: "{{ dagu_routes.json.routes | default([], true) }}"
+          no_log: true
+
+        - name: Our route, matched
+          ansible.builtin.set_fact:
+            dagu_discord_routes_mine: >-
+              {%- set ns = namespace(out=[]) -%}
+              {%- for r in dagu_discord_routes_existing -%}
+              {%- if (r.channelId | string) == dagu_discord_channel_id -%}{%- set ns.out = ns.out + [r] -%}{%- endif -%}
+              {%- endfor -%}
+              {{ ns.out }}
+          no_log: true
+
+        - name: Stop when the route for our channel is ambiguous
+          ansible.builtin.assert:
+            that: dagu_discord_routes_mine | length <= 1
+            fail_msg: >-
+              Dagu has {{ dagu_discord_routes_mine | length }} global routes for the channel
+              {{ dagu_discord_channel_name }}; not changing any route. Remove the extra ones in
+              Dagu's Notifications page and rerun.
+            quiet: true
+
+        # Adds the route, or brings the one route of our channel in line with dagu_discord_events
+        # (keeping its id and enabled flag). Every other route is sent back unchanged, in order.
         - name: Route to the Discord errors channel, added or updated next to the existing ones
           ansible.builtin.uri:
             url: "http://{{ dagu_bind_host }}:{{ dagu_port }}/api/v1/notification-routes/global"
@@ -301,14 +332,17 @@
               enabled: "{{ dagu_routes.json.enabled }}"
               inheritGlobal: "{{ dagu_routes.json.inheritGlobal }}"
               routes: >-
-                {{ (existing | rejectattr('channelId', 'equalto', channel_id) | list)
-                   + [ (mine[0] | combine({'events': dagu_discord_events})) if mine | length > 0
-                       else {'channelId': channel_id, 'enabled': true, 'events': dagu_discord_events} ] }}
+                {%- set ns = namespace(out=[]) -%}
+                {%- for r in dagu_discord_routes_existing -%}
+                {%- if (r.channelId | string) == dagu_discord_channel_id -%}
+                {%- set ns.out = ns.out + [r | combine({'events': dagu_discord_events})] -%}
+                {%- else -%}{%- set ns.out = ns.out + [r] -%}{%- endif -%}
+                {%- endfor -%}
+                {%- if dagu_discord_routes_mine | length == 0 -%}
+                {%- set ns.out = ns.out + [{'channelId': dagu_discord_channel_id, 'enabled': true, 'events': dagu_discord_events}] -%}
+                {%- endif -%}
+                {{ ns.out }}
             use_netrc: false
-          vars:
-            channel_id: "{{ dagu_discord_channel.id if dagu_discord_channel | length > 0 else dagu_discord_created.json.id }}"
-            existing: "{{ dagu_routes.json.routes | default([], true) }}"
-            mine: "{{ existing | selectattr('channelId', 'equalto', channel_id) | list }}"
-          when: (mine | length == 0) or ((mine[0].events | default([], true) | sort) != (dagu_discord_events | sort))
+          when: (dagu_discord_routes_mine | length == 0) or ((dagu_discord_routes_mine[0].events | default([], true) | sort) != (dagu_discord_events | sort))
           changed_when: true
           delegate_to: localhost

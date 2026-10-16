@@ -5,7 +5,6 @@
     mode: "0755"
   loop:
     - "{{ ansible_env.HOME }}/.config/dagu/dags"
-    - "{{ ansible_env.HOME }}/Library/Logs/dagu"
     - "{{ local_bin }}"
 
 - name: Installed dagu version
@@ -15,7 +14,8 @@
   failed_when: false
 
 # Dagu v2.19 writes the full webhook URL (or bot token) into its log when a delivery fails on
-# a connection error, so only the owner reads the logs.
+# a connection error, so only the owner reads the logs. This is the only task that manages
+# the directory (not the 0755 loop above), so a second run reports no change.
 - name: Dagu logs readable by the owner only
   ansible.builtin.file:
     path: "{{ ansible_env.HOME }}/Library/Logs/dagu"
