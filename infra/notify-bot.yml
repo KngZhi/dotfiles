@@ -1,17 +1,23 @@
 # One Telegram bot for ops alerts. Its token has a single source, 1Password
 # (notify_bot_op_ref in group_vars/home_server.yml); this playbook copies it to every
 # consumer listed there. To change the bot: edit the 1Password item, then
-#   ansible-playbook notify-bot.yml                 home server env files and Dagu's channel, then the Discord webhooks
-#   ansible-playbook notify-bot.yml --tags cloud    Fly and GitHub secrets (restarts the Fly apps that are not staged)
-#   ansible-playbook notify-bot.yml --tags discord  only the Discord webhooks (the second play)
+#   ansible-playbook notify-bot.yml                 home server env files and Dagu's channel, then the Discord webhooks (second play)
+#   ansible-playbook notify-bot.yml --tags cloud    Fly and GitHub secrets, Telegram token and Discord webhooks
+#                                                   (restarts the Fly apps that are not staged)
+#   ansible-playbook notify-bot.yml --tags discord  the Discord webhooks on the server and in Dagu (second play)
 # Only the token is copied. Each consumer keeps its own chat id, and the bot must already
 # be able to post there (a private chat it was started in, or a group it was added to).
 #
 # The second play does the same for the Discord server "SAOKO Ops": one webhook per channel,
-# all fields of one 1Password item (discord_webhooks_op_item), copied to the env files in
-# discord_webhook_env_files and to Dagu's failed-run rules. It is a play of its own because a
-# missing field is normal there (a channel not set up yet is skipped), where a missing Telegram
-# token stops the run. It adds Discord next to Telegram and changes nothing about Telegram.
+# all fields of one 1Password item (discord_webhooks_op_item), copied to
+#   - the home server env files in discord_webhook_env_files (each lists the keys it gets),
+#   - Dagu's failed-run rules (tag discord),
+#   - Fly secrets (discord_webhook_fly_apps) and GitHub Actions secrets
+#     (discord_webhook_github_repos), only with --tags cloud, like the Telegram token.
+# It is a play of its own because a missing field is normal there (a channel not set up yet is
+# skipped, per destination), where a missing Telegram token stops the run. It adds Discord next
+# to Telegram and changes nothing about Telegram. Google Apps Script properties are not set
+# here: they are set by hand in the Apps Script editor.
 - name: Alert bot token from 1Password to its consumers
   hosts: mbp-intel
   gather_facts: true
@@ -88,7 +94,6 @@
 - name: Discord webhooks from 1Password to the cron env file and Dagu
   hosts: mbp-intel
   gather_facts: true
-  tags: discord
   tasks:
     # One `op read` per field, never failing the play: a field or the whole item may not exist
     # yet, and `op` may be signed out. Nothing from the result is printed (no_log).
@@ -103,6 +108,7 @@
       changed_when: false
       no_log: true
       delegate_to: localhost
+      tags: [discord, cloud]
 
     # What came back as an https URL; anything else (an empty or mistyped field) counts as missing.
     - name: Keep the channels that have a URL
@@ -114,30 +120,98 @@
              | selectattr('stdout', 'match', '\s*https://')
              | list }}
       no_log: true
+      tags: [discord, cloud]
 
+    # env key -> URL, for every destination below. Senders post {"content": ...}; the /slack
+    # form is only for Dagu, so never store it anywhere else.
+    - name: Webhook URLs by env key
+      ansible.builtin.set_fact:
+        discord_webhook_values: >-
+          {{ dict(discord_webhooks_found | map(attribute='item.key')
+                  | zip(discord_webhooks_found | map(attribute='stdout')
+                        | map('trim') | map('regex_replace', '/+$', '') | map('regex_replace', '/slack$', ''))) }}
+      no_log: true
+      tags: [discord, cloud]
+
+    # Each file gets the keys listed for it, and only those that were read.
     - name: Webhooks in the server's env files
       ansible.builtin.lineinfile:
-        path: "{{ item.1 }}"
-        regexp: "^{{ item.0.item.key }}="
-        # notify.sh posts {"content": ...}; the /slack form is only for Dagu, so never store it here.
-        line: "{{ item.0.item.key }}={{ item.0.stdout | trim | regex_replace('/+$', '') | regex_replace('/slack$', '') }}"
+        path: "{{ item.0.path }}"
+        regexp: "^{{ item.1 }}="
+        line: "{{ item.1 }}={{ discord_webhook_values[item.1] }}"
         create: false
-      loop: "{{ discord_webhooks_found | product(discord_webhook_env_files) | list }}"
+      loop: "{{ discord_webhook_env_files | subelements('env_keys') }}"
       loop_control:
-        label: "{{ item.1 }}"
+        label: "{{ item.0.path }} {{ item.1 }}"
+      when: item.1 in discord_webhook_values
       no_log: true
       diff: false
+      tags: discord
 
-    # Channel names only.
-    - name: Which Discord channels were written and which skipped
+    # `fly secrets import` reads NAME=VALUE lines from stdin, so the URLs stay out of argv.
+    # Same --stage rule as the Telegram token. An app with none of its keys read is skipped.
+    - name: Webhooks in Fly secrets
+      ansible.builtin.command:
+        argv: "{{ ['fly', 'secrets', 'import', '--app', item.app] + (['--stage'] if item.stage | default(false) else []) }}"
+        stdin: "{% for k in wanted %}{{ k }}={{ discord_webhook_values[k] }}\n{% endfor %}"
+      environment:
+        FLY_API_TOKEN: "{{ lookup('ansible.builtin.pipe', 'op read ' ~ (fly_api_token_op_ref | quote)) }}"
+      vars:
+        wanted: "{{ item.env_keys | select('in', discord_webhook_values) | list }}"
+      loop: "{{ discord_webhook_fly_apps }}"
+      loop_control:
+        label: "{{ item.app }}"
+      when: wanted | length > 0
+      no_log: true
+      delegate_to: localhost
+      tags: [never, cloud]
+
+    - name: Webhooks in GitHub Actions secrets
+      ansible.builtin.command:
+        argv: [gh, secret, set, "{{ item.1 }}", --repo, "{{ item.0.repo }}"]
+        stdin: "{{ discord_webhook_values[item.1] }}"
+      loop: "{{ discord_webhook_github_repos | subelements('env_keys') }}"
+      loop_control:
+        label: "{{ item.0.repo }} {{ item.1 }}"
+      when: item.1 in discord_webhook_values
+      no_log: true
+      delegate_to: localhost
+      tags: [never, cloud]
+
+    # Names only below: channels, env keys, paths, apps and repos; never a value.
+    - name: Which Discord webhooks were read
       ansible.builtin.debug:
         msg: >-
-          Discord webhooks written: {{ written | join(', ') or 'none' }}
-          (to {{ discord_webhook_env_files | length }} env file(s)).
-          Skipped, no URL in 1Password ({{ discord_webhooks_op_item }}): {{ skipped | join(', ') or 'none' }}.
+          Discord webhooks read: {{ found | join(', ') or 'none' }}.
+          Skipped, no URL in 1Password ({{ discord_webhooks_op_item }}): {{ missing | join(', ') or 'none' }}.
       vars:
-        written: "{{ discord_webhooks_found | map(attribute='item.field') | list }}"
-        skipped: "{{ discord_webhook_channels | map(attribute='field') | reject('in', written) | list }}"
+        found: "{{ discord_webhooks_found | map(attribute='item.field') | list }}"
+        missing: "{{ discord_webhook_channels | map(attribute='field') | reject('in', found) | list }}"
+      tags: [discord, cloud]
+
+    - name: Where the Discord webhooks went on the server
+      ansible.builtin.debug:
+        msg: "{{ item.path }}: wrote {{ item.env_keys | select('in', discord_webhook_values) | join(', ') or 'none' }}; skipped {{ item.env_keys | reject('in', discord_webhook_values) | join(', ') or 'none' }}"
+      loop: "{{ discord_webhook_env_files }}"
+      loop_control:
+        label: "{{ item.path }}"
+      tags: discord
+
+    - name: Where the Discord webhooks went in Fly
+      ansible.builtin.debug:
+        msg: "Fly app {{ item.app }}: set {{ item.env_keys | select('in', discord_webhook_values) | join(', ') or 'none' }}; skipped {{ item.env_keys | reject('in', discord_webhook_values) | join(', ') or 'none' }}"
+      loop: "{{ discord_webhook_fly_apps }}"
+      loop_control:
+        label: "{{ item.app }}"
+      tags: [never, cloud]
+
+    - name: Where the Discord webhooks went in GitHub
+      ansible.builtin.debug:
+        msg: "GitHub repo {{ item.repo }}: set {{ item.env_keys | select('in', discord_webhook_values) | join(', ') or 'none' }}; skipped {{ item.env_keys | reject('in', discord_webhook_values) | join(', ') or 'none' }}"
+      loop: "{{ discord_webhook_github_repos }}"
+      loop_control:
+        label: "{{ item.repo }}"
+      tags: [never, cloud]
 
     # Dagu's own failed-run notices, the same ones its Telegram channel gets. Dagu v2.19.0 API
     # (api/v1/api.yaml; the web UI's Notifications page calls the same routes): a Slack-type
@@ -145,6 +219,7 @@
     # replaces the whole set, so the existing routes are sent back unchanged with ours added.
     - name: Dagu's failed-run notices to the Discord errors channel
       when: discord_webhooks_found | selectattr('item.field', 'equalto', 'errors') | list | length > 0
+      tags: discord
       block:
         # The URL for Dagu is the webhook plus /slack.
         - name: The errors webhook in Slack format

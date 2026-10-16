@@ -103,19 +103,35 @@ notify_bot_github_repos:
 
 # Discord server "SAOKO Ops": the same ops alerts in four private channels, one webhook each.
 # A webhook URL is a credential (anyone holding it can post), so 1Password holds the only copy,
-# one item with a field per channel; notify-bot.yml writes every URL it can read to the env
-# files below. chile-mono's ops/cron/notify.sh reads the keys from its environment or from that
-# env file (line by line, never sourced), picks the channel by job name or NOTIFY_CHANNEL, and
-# skips Discord for a channel whose key is absent, so a field may stay empty until its channel
-# is ready. Telegram stays as it is.
+# one item with a field per channel; notify-bot.yml writes every URL it can read to the
+# destinations below, each with only the keys listed for it. A field that is empty is skipped
+# for every destination, so a channel may stay unset until it is ready, and senders skip Discord
+# for a key that is absent. Telegram stays as it is. Google Apps Script properties are not
+# written by the playbook: set them by hand in the Apps Script editor.
 discord_webhooks_op_item: "op://DEV/Discord Webhooks SAOKO Ops"
 discord_webhook_channels:       # 1Password field -> env key
   - { field: deploy, key: DISCORD_WEBHOOK_DEPLOY }   # 部署
   - { field: errors, key: DISCORD_WEBHOOK_ERRORS }   # 报错
   - { field: health, key: DISCORD_WEBHOOK_HEALTH }   # 健康
   - { field: daily, key: DISCORD_WEBHOOK_DAILY }     # 日报
+# Home server env files, read line by line (never sourced) by their senders. create is false on
+# purpose: each file is owned by its service's deploy, so a missing one means something is wrong
+# and the play should fail loudly. lineinfile keeps a file's mode (saoko-whatsapp's is 0600).
 discord_webhook_env_files:
-  - "{{ ansible_env.HOME }}/.local/share/chile-mono-cron/.env"   # notify.sh, through run.sh and dagu-probe
+  - path: "{{ ansible_env.HOME }}/.local/share/chile-mono-cron/.env"   # notify.sh, through run.sh and dagu-probe
+    env_keys: [DISCORD_WEBHOOK_DEPLOY, DISCORD_WEBHOOK_ERRORS, DISCORD_WEBHOOK_HEALTH, DISCORD_WEBHOOK_DAILY]
+  - path: "{{ ansible_env.HOME }}/.config/saoko-whatsapp/env"   # watchdog and watchdog/scripts/notify.sh
+    env_keys: [DISCORD_WEBHOOK_DEPLOY, DISCORD_WEBHOOK_ERRORS, DISCORD_WEBHOOK_HEALTH, DISCORD_WEBHOOK_DAILY]
+  - path: "{{ ansible_env.HOME }}/services/order-printer-local-server/shared/.env"
+    env_keys: [DISCORD_WEBHOOK_DEPLOY, DISCORD_WEBHOOK_ERRORS, DISCORD_WEBHOOK_HEALTH]
+# Cloud destinations (--tags cloud). Same rule as the Telegram token: a Fly app that is not
+# staged restarts on import; chile-mono-shopify-k2046-sync is staged and reads them at its
+# next start.
+discord_webhook_fly_apps:
+  - { app: chile-mono-shopify-order-sync, env_keys: [DISCORD_WEBHOOK_ERRORS, DISCORD_WEBHOOK_DAILY] }
+  - { app: chile-mono-shopify-k2046-sync, stage: true, env_keys: [DISCORD_WEBHOOK_ERRORS, DISCORD_WEBHOOK_DAILY] }
+discord_webhook_github_repos:
+  - { repo: KngZhi/chile-mono, env_keys: [DISCORD_WEBHOOK_ERRORS, DISCORD_WEBHOOK_DEPLOY] }   # shopify-sync.yml, shopify-sync-tests.yml
 # Dagu's own failed-run notices also go to 报错. Dagu has no Discord channel type, but Discord
 # takes Slack-format payloads at the webhook URL + /slack, so notify-bot.yml keeps a Slack-type
 # channel of this name and a route to it on the global rules (Telegram's route is left alone).
