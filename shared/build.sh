@@ -19,7 +19,8 @@ PACKS_DIR="$DOTFILES_DIR/shared/skill-packs"
 PACKS_DEPLOY="$PACKS_DIR/.deploy"
 OVERRIDES="$DOTFILES_DIR/shared/skill-overrides"
 PACK_EXCLUDE="deprecated in-progress misc out-of-scope personal .out-of-scope"
-PACK_SKILL_EXCLUDE="keel"
+# Keep the WeChat backend installed; shared/skills/wechat owns discovery.
+PACK_SKILL_EXCLUDE="keel tzwkb-wechat-decrypt"
 
 PULL=0
 while [ $# -gt 0 ]; do

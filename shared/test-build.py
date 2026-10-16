@@ -218,6 +218,19 @@ class BuildTests(unittest.TestCase):
         self.assertIn("no selected upstream skill", self.run_build(False).stderr)
         self.assertTrue(self.runtime_skill(".agents", "example").exists())
 
+    def test_wechat_backend_survives_discovery_consolidation(self):
+        backend = self.skill("shared/skill-packs/author-pack/skills/tzwkb-wechat-decrypt", "backend")
+        self.skill("shared/skills/wechat", "unified entrypoint")
+        for host in (".agents", ".claude"):
+            old = self.runtime_skill(host, "tzwkb-wechat-decrypt")
+            old.parent.mkdir(parents=True, exist_ok=True)
+            old.symlink_to(backend.parent)
+        self.run_build()
+        self.assertEqual(backend.read_text(), "backend\n")
+        for host in (".agents", ".claude"):
+            self.assertFalse(os.path.lexists(self.runtime_skill(host, "tzwkb-wechat-decrypt")))
+            self.assertEqual((self.runtime_skill(host, "wechat") / "SKILL.md").read_text(), "unified entrypoint\n")
+
     def test_duplicate_local_name_is_rejected(self):
         self.skill("codex/skills/explain-like-five", "duplicate")
         self.assertIn("collision", self.run_build(False).stderr)

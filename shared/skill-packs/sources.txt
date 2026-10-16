@@ -5,3 +5,4 @@
 https://github.com/mattpocock/skills
 https://github.com/lencx/skills
 https://github.com/Yevanchen/reclaim-code-entropy
+https://github.com/tzwkb/wechat-decrypt
